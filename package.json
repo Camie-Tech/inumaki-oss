@@ -17,7 +17,8 @@
     "lint": "eslint .",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "format": "prettier --check ."
+    "format": "prettier --check .",
+    "dist:win": "pnpm --filter @inumaki/desktop dist:win"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

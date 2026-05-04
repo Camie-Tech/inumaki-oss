@@ -22,6 +22,12 @@ packages/
 docs/        Architecture and workflow notes
 ```
 
+## Desktop Downloads
+
+Internal users get the Windows installer from GitHub Releases. Each release attaches an asset named like `Inumaki-AI-0.1.0-x64.exe`.
+
+Maintainers create that downloadable installer by pushing a version tag or manually running the `Release` workflow in GitHub Actions. See [docs/downloads.md](docs/downloads.md).
+
 ## Setup
 
 ```bash
@@ -49,7 +55,7 @@ pnpm lint         # Lint workspace
 pnpm typecheck    # Type-check all packages
 pnpm test         # Run unit tests where present
 pnpm build        # Build all packages
-pnpm --filter @inumaki/desktop dist:win
+pnpm dist:win     # Build the Windows desktop installer
 ```
 
 ## Branch Workflow

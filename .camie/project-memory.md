@@ -29,6 +29,7 @@ It was auto-generated from a first-pass repository scan and should be refined as
 - `pnpm test`
 - `pnpm build`
 - `pnpm --filter @inumaki/desktop dist:win` builds the Windows distributable.
+- `pnpm dist:win` builds the Windows desktop installer from the repo root.
 - API port is configured with `INUMAKI_API_PORT` and defaults to `4141`; desktop defaults to `INUMAKI_API_BASE_URL` or that same port.
 
 ## Conventions
@@ -44,6 +45,7 @@ It was auto-generated from a first-pass repository scan and should be refined as
 - `README.md`
 - `docs/architecture.md`
 - `docs/branching.md`
+- `docs/downloads.md`
 - `packages/shared/src/index.ts`
 - `apps/api/src/server.ts`
 - `apps/api/src/dictation/routes.ts`
@@ -67,6 +69,7 @@ It was auto-generated from a first-pass repository scan and should be refined as
 
 - Repository was initialized with Git on branch `main`.
 - Branch workflow is documented as `main` for releases and `dev` for integration; CI triggers on both.
+- Internal users download the desktop installer from GitHub Releases; `.github/workflows/release.yml` builds and uploads Windows release assets.
 - SQLite was chosen for the MVP despite the initial task mentioning Postgres in setup tasks, because the product spec recommends SQLite for the first internal version.
 - Project memory is stored in `.camie/project-memory.md` and is injected into every Camie session start.
 - Update this file whenever you learn durable facts that should reduce future re-discovery cost.

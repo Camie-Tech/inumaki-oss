@@ -39,6 +39,7 @@
   "build": {
     "appId": "ai.inumaki.desktop",
     "productName": "Inumaki AI",
+    "artifactName": "Inumaki-AI-${version}-${arch}.${ext}",
     "directories": {
       "output": "release"
     },
