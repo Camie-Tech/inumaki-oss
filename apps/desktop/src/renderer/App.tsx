@@ -310,8 +310,8 @@ export function App() {
 
   return (
     <div className="min-h-dvh bg-zinc-100 text-zinc-950">
-      <div className="grid min-h-dvh lg:grid-cols-[260px_minmax(0,1fr)]">
-        <aside className="border-b border-zinc-200 bg-zinc-950 text-white lg:border-b-0 lg:border-r lg:border-zinc-800">
+      <div className="grid min-h-dvh grid-cols-[260px_minmax(0,1fr)]">
+        <aside className="border-r border-zinc-800 bg-zinc-950 text-white">
           <div className="flex h-full flex-col p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
             <div className="flex items-center gap-3 px-2 py-2">
               <div className="flex size-10 items-center justify-center rounded-lg bg-white text-zinc-950">
@@ -390,7 +390,7 @@ export function App() {
                     className={cn(
                       "mt-5 flex h-40 w-full flex-col items-center justify-center gap-3 rounded-lg border text-base font-semibold outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed",
                       status === "recording"
-                        ? "border-red-300 bg-red-50 text-red-700"
+                        ? "border-blue-700 bg-white text-blue-700"
                         : "border-blue-700 bg-blue-700 text-white hover:bg-blue-800",
                       status === "processing" &&
                         "border-zinc-300 bg-zinc-200 text-zinc-500",
@@ -805,7 +805,7 @@ export function App() {
                 Cancel
               </AlertDialog.Cancel>
               <AlertDialog.Action
-                className="h-10 rounded-md bg-red-700 px-4 text-sm font-medium text-white hover:bg-red-800"
+                className="h-10 rounded-md bg-zinc-950 px-4 text-sm font-medium text-white hover:bg-zinc-800"
                 onClick={() =>
                   pendingDisableUser &&
                   void submitDisable(pendingDisableUser.id)
@@ -945,12 +945,10 @@ function StatusBadge({
     <div
       className={cn(
         "inline-flex h-9 items-center rounded-full border px-3 text-sm font-medium tabular-nums",
-        status === "recording" && "border-red-200 bg-red-50 text-red-700",
-        status === "processing" &&
-          "border-amber-200 bg-amber-50 text-amber-700",
-        status === "success" &&
-          "border-emerald-200 bg-emerald-50 text-emerald-700",
-        status === "error" && "border-red-200 bg-red-50 text-red-700",
+        status === "recording" && "border-blue-700 bg-blue-700 text-white",
+        status === "processing" && "border-blue-200 bg-blue-50 text-blue-700",
+        status === "success" && "border-zinc-950 bg-zinc-950 text-white",
+        status === "error" && "border-blue-300 bg-white text-blue-700",
         status === "idle" && "border-zinc-200 bg-white text-zinc-600",
       )}
     >
@@ -961,7 +959,7 @@ function StatusBadge({
 
 function InlineError({ message }: { message: string }) {
   return (
-    <div className="mt-4 flex gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+    <div className="mt-4 flex gap-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">
       <AlertCircle className="mt-0.5 size-4 shrink-0" />
       <span className="text-pretty">{message}</span>
     </div>
