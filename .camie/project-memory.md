@@ -15,7 +15,7 @@ It was auto-generated from a first-pass repository scan and should be refined as
 - API app: Express + TypeScript. Routes cover `/dictations`, `/settings`, `/admin/users`, `/admin/usage`, and `/health`.
 - Shared package exports output modes, labels, default settings, and API contract types.
 - SQLite is the MVP persistence layer via `better-sqlite3` and Drizzle schema definitions. API creates tables on startup.
-- Transcription uses local whisper.cpp. `pnpm setup:whisper` clones/builds official whisper.cpp under `.local/whisper.cpp` and downloads the configured ggml model; `WHISPER_CPP_BINARY` and `WHISPER_MODEL_PATH` can override resolution.
+- Transcription uses local whisper.cpp. `pnpm setup:whisper` downloads the official Windows binary release by default on Windows, clones/builds whisper.cpp on Linux/macOS, and downloads the configured ggml model; `WHISPER_CPP_BINARY` and `WHISPER_MODEL_PATH` can override resolution.
 - Rewrite uses Groq when `GROQ_API_KEY` is configured; otherwise the API uses deterministic local cleanup fallback.
 
 ## Commands
@@ -64,7 +64,7 @@ It was auto-generated from a first-pass repository scan and should be refined as
 - Electron `globalShortcut` is currently toggle-style; true press-and-hold keyup capture will need a Windows global keyboard hook library or native module.
 - Windows auto-paste is implemented with clipboard plus PowerShell SendKeys and is only active on `win32`.
 - Whisper integration expects a whisper.cpp-compatible CLI and ggml model; run `pnpm setup:whisper` because no model binaries are committed.
-- `pnpm setup:whisper` requires git, CMake, and a C++ build toolchain.
+- `pnpm setup:whisper` requires git, CMake, and a C++ build toolchain for source builds; default Windows setup uses the official prebuilt whisper.cpp release asset instead of Visual Studio.
 - Groq model is configurable via `GROQ_MODEL`; verify model choice before production use.
 - `better-sqlite3`, Electron, and esbuild require pnpm approved build scripts; root `package.json` records these under `pnpm.onlyBuiltDependencies`.
 
