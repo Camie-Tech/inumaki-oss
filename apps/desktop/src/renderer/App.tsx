@@ -309,7 +309,7 @@ export function App() {
   }
 
   return (
-    <div className="min-h-dvh bg-zinc-100 text-zinc-950">
+    <div className="min-h-dvh min-w-[1120px] bg-zinc-100 text-zinc-950">
       <div className="grid min-h-dvh grid-cols-[260px_minmax(0,1fr)]">
         <aside className="border-r border-zinc-800 bg-zinc-950 text-white">
           <div className="flex h-full flex-col p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
