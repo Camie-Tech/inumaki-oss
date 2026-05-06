@@ -310,7 +310,7 @@ export function App() {
 
   return (
     <div className="min-h-dvh bg-zinc-100 text-zinc-950">
-      <div className="grid min-h-dvh lg:grid-cols-[260px_minmax(0,1fr)]">
+      <div className="grid min-h-dvh grid-cols-[260px_minmax(0,1fr)]">
         <aside className="border-b border-zinc-200 bg-zinc-950 text-white lg:border-b-0 lg:border-r lg:border-zinc-800">
           <div className="flex h-full flex-col p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
             <div className="flex items-center gap-3 px-2 py-2">
