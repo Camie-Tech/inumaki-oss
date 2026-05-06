@@ -225,10 +225,12 @@ function extractZip(zipPath, destination) {
     "-ExecutionPolicy",
     "Bypass",
     "-Command",
-    "Expand-Archive -LiteralPath $args[0] -DestinationPath $args[1] -Force",
-    zipPath,
-    destination,
+    `Expand-Archive -LiteralPath ${powerShellString(zipPath)} -DestinationPath ${powerShellString(destination)} -Force`,
   ]);
+}
+
+function powerShellString(value) {
+  return `'${value.replaceAll("'", "''")}'`;
 }
 
 function modelUrl(name) {
