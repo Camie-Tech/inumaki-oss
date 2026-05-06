@@ -38,7 +38,7 @@ It was auto-generated from a first-pass repository scan and should be refined as
 - Use shared output/settings contracts from `packages/shared` rather than duplicating mode strings.
 - Desktop UI uses Tailwind defaults, `cn` from `clsx` + `tailwind-merge`, lucide icons, Radix Dialog for previews, and Radix AlertDialog for destructive confirmations.
 - Desktop renderer should keep a persistent left sidebar; this is a desktop app, not a responsive web/mobile layout.
-- Electron window minimum is 1120x720 and the native application menu bar is hidden to preserve the desktop workspace layout.
+- Electron window minimum is 1280x760 and the native application menu bar is hidden to preserve the desktop workspace layout.
 - The API should not retain raw audio; uploaded audio is temporary and deleted after dictation processing.
 - No authentication is implemented for the MVP; admin controls are intentionally lightweight.
 

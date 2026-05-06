@@ -8,6 +8,7 @@ import {
   Clipboard,
   Copy,
   Keyboard,
+  Menu as MenuIcon,
   Mic,
   Pause,
   Play,
@@ -78,6 +79,7 @@ export function App() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [pendingDisableUser, setPendingDisableUser] =
     useState<AdminUser | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -309,9 +311,23 @@ export function App() {
   }
 
   return (
-    <div className="min-h-dvh min-w-[1120px] bg-zinc-100 text-zinc-950">
-      <div className="grid min-h-dvh grid-cols-[260px_minmax(0,1fr)]">
-        <aside className="border-r border-zinc-800 bg-zinc-950 text-white">
+    <div className="min-h-dvh min-w-[1280px] bg-zinc-100 text-zinc-950">
+      {isSidebarOpen && (
+        <button
+          className="fixed inset-0 z-40 bg-zinc-950/40 lg:hidden"
+          aria-label="Close sidebar"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      <div className="grid min-h-dvh lg:grid-cols-[260px_minmax(0,1fr)]">
+        <aside
+          className={cn(
+            "w-[260px] border-r border-zinc-800 bg-zinc-950 text-white",
+            "hidden lg:block",
+            isSidebarOpen && "fixed inset-y-0 left-0 z-50 block",
+          )}
+        >
           <div className="flex h-full flex-col p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
             <div className="flex items-center gap-3 px-2 py-2">
               <div className="flex size-10 items-center justify-center rounded-lg bg-white text-zinc-950">
@@ -328,19 +344,28 @@ export function App() {
                 active={view === "dictation"}
                 icon={Mic}
                 label="Dictation"
-                onClick={() => setView("dictation")}
+                onClick={() => {
+                  setView("dictation");
+                  setIsSidebarOpen(false);
+                }}
               />
               <NavButton
                 active={view === "settings"}
                 icon={Settings}
                 label="Settings"
-                onClick={() => setView("settings")}
+                onClick={() => {
+                  setView("settings");
+                  setIsSidebarOpen(false);
+                }}
               />
               <NavButton
                 active={view === "admin"}
                 icon={SlidersHorizontal}
                 label="Admin"
-                onClick={() => setView("admin")}
+                onClick={() => {
+                  setView("admin");
+                  setIsSidebarOpen(false);
+                }}
               />
             </nav>
 
@@ -366,13 +391,22 @@ export function App() {
 
         <main className="min-w-0 px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:px-6">
           <header className="flex flex-wrap items-start justify-between gap-4 border-b border-zinc-200 pb-4">
-            <div>
-              <p className="text-sm font-medium text-zinc-500">
-                {activeView.eyebrow}
-              </p>
-              <h2 className="text-balance text-2xl font-semibold">
-                {activeView.title}
-              </h2>
+            <div className="flex items-start gap-3">
+              <button
+                className="inline-flex h-10 items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 lg:hidden"
+                onClick={() => setIsSidebarOpen(true)}
+              >
+                <MenuIcon className="size-4" />
+                Menu
+              </button>
+              <div>
+                <p className="text-sm font-medium text-zinc-500">
+                  {activeView.eyebrow}
+                </p>
+                <h2 className="text-balance text-2xl font-semibold">
+                  {activeView.title}
+                </h2>
+              </div>
             </div>
             <StatusBadge status={status} label={statusLabel} />
           </header>

@@ -26,10 +26,10 @@ const apiBaseUrl =
   process.env.INUMAKI_API_BASE_URL ?? `http://127.0.0.1:${apiPort}`;
 const settingsPath = () => path.join(app.getPath("userData"), "settings.json");
 const windowBounds = {
-  height: 760,
-  minHeight: 720,
-  minWidth: 1120,
-  width: 1180,
+  height: 800,
+  minHeight: 760,
+  minWidth: 1280,
+  width: 1360,
 };
 
 function createWindow(): void {
