@@ -25,16 +25,23 @@ const apiPort = process.env.INUMAKI_API_PORT ?? "4141";
 const apiBaseUrl =
   process.env.INUMAKI_API_BASE_URL ?? `http://127.0.0.1:${apiPort}`;
 const settingsPath = () => path.join(app.getPath("userData"), "settings.json");
+const windowBounds = {
+  height: 760,
+  minHeight: 720,
+  minWidth: 1120,
+  width: 1180,
+};
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 920,
-    height: 680,
-    minWidth: 720,
-    minHeight: 560,
+    width: windowBounds.width,
+    height: windowBounds.height,
+    minWidth: windowBounds.minWidth,
+    minHeight: windowBounds.minHeight,
     title: "Inumaki AI",
     show: false,
-    backgroundColor: "#f8fafc",
+    autoHideMenuBar: true,
+    backgroundColor: "#f4f4f5",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       sandbox: false,
@@ -48,6 +55,8 @@ function createWindow(): void {
       mainWindow?.hide();
     }
   });
+
+  mainWindow.setMenuBarVisibility(false);
 
   if (process.env.ELECTRON_RENDERER_URL) {
     void mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
@@ -146,6 +155,7 @@ ipcMain.handle("paste:active-window", () => pasteIntoActiveWindow());
 
 app.whenReady().then(() => {
   currentSettings = readSettings();
+  Menu.setApplicationMenu(null);
   createWindow();
   createTray();
   registerHotkey(currentSettings);
