@@ -30,21 +30,89 @@ Maintainers create that downloadable installer by pushing a version tag or manua
 
 ## Setup
 
+### Native prerequisites
+
+The API transcribes locally with whisper.cpp. Install Node/pnpm plus the native tools required to build whisper.cpp before running the app.
+
+Ubuntu/Debian:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y git cmake build-essential
+```
+
+macOS:
+
+```bash
+xcode-select --install
+brew install cmake
+```
+
+Windows:
+
+1. Install Git for Windows.
+2. Install Visual Studio Build Tools with the "Desktop development with C++" workload.
+3. Install CMake and make sure it is available on `PATH`.
+4. Recommended: install Ninja so setup can build from normal PowerShell:
+
+   ```powershell
+   winget install Ninja-build.Ninja
+   ```
+
+5. Run setup commands from PowerShell. If you do not install Ninja, run from "x64 Native Tools Command Prompt for VS 2022" or use the default Visual Studio generator selected by the setup script.
+
+Verify the native toolchain:
+
+```bash
+git --version
+cmake --version
+g++ --version # Linux/macOS
+```
+
+On Windows, verify the relevant compiler tool from the shell you will use:
+
+```powershell
+where cmake
+where ninja # if installed
+where cl    # when using Visual Studio/NMake tools
+where nmake # only needed when forcing NMake
+```
+
+### Project setup
+
 ```bash
 pnpm install
 cp .env.example .env
+pnpm setup:whisper
 pnpm dev
 ```
 
 The API runs on `http://127.0.0.1:4141` by default. The desktop app reads `INUMAKI_API_BASE_URL`, defaulting to that local API URL.
 
-For local transcription, install whisper.cpp and the default ggml model:
+`pnpm setup:whisper` clones official whisper.cpp under `.local/whisper.cpp`, builds `whisper-cli`, and downloads `ggml-base.en.bin` by default. No Whisper binaries or models are committed to the repo.
+
+Useful setup overrides:
 
 ```bash
+WHISPER_CPP_REF=v1.8.4 pnpm setup:whisper
+WHISPER_CPP_MODEL=small.en pnpm setup:whisper
+WHISPER_CPP_HOME=.local/whisper.cpp pnpm setup:whisper
+```
+
+Windows generator overrides:
+
+```powershell
+$env:WHISPER_CPP_CMAKE_GENERATOR = "Ninja"
+pnpm setup:whisper
+
+$env:WHISPER_CPP_CMAKE_GENERATOR = "Visual Studio 17 2022"
+$env:WHISPER_CPP_CMAKE_ARCHITECTURE = "x64"
 pnpm setup:whisper
 ```
 
-This requires `git`, CMake, and a C++ build toolchain on the machine running setup. The setup script clones and builds official `whisper.cpp` under `.local/whisper.cpp` and downloads `ggml-base.en.bin`. You can override the managed install with:
+If CMake prints `Building for: NMake Makefiles` and then fails because `nmake`, `CMAKE_C_COMPILER`, or `CMAKE_CXX_COMPILER` is missing, the shell does not have the Visual Studio build tools on `PATH`. Install Ninja, run from the x64 Visual Studio tools shell, or set `WHISPER_CPP_CMAKE_GENERATOR` to `Visual Studio 17 2022`.
+
+You can also bypass the managed install with an existing local whisper.cpp binary and ggml model:
 
 ```bash
 WHISPER_CPP_BINARY=/path/to/whisper-cli
