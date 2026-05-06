@@ -38,14 +38,20 @@ pnpm dev
 
 The API runs on `http://127.0.0.1:4141` by default. The desktop app reads `INUMAKI_API_BASE_URL`, defaulting to that local API URL.
 
-For local transcription, configure a whisper.cpp-compatible binary:
+For local transcription, install whisper.cpp and the default ggml model:
+
+```bash
+pnpm setup:whisper
+```
+
+This requires `git`, CMake, and a C++ build toolchain on the machine running setup. The setup script clones and builds official `whisper.cpp` under `.local/whisper.cpp` and downloads `ggml-base.en.bin`. You can override the managed install with:
 
 ```bash
 WHISPER_CPP_BINARY=/path/to/whisper-cli
-WHISPER_MODEL_PATH=/path/to/ggml-model.bin
+WHISPER_MODEL_PATH=/path/to/ggml-base.en.bin
 ```
 
-For development without Whisper installed, set `INUMAKI_ALLOW_MOCK_TRANSCRIPTION=true`.
+Mock transcription is not supported.
 
 ## Common Commands
 
@@ -56,6 +62,7 @@ pnpm typecheck    # Type-check all packages
 pnpm test         # Run unit tests where present
 pnpm build        # Build all packages
 pnpm dist:win     # Build the Windows desktop installer
+pnpm setup:whisper # Build whisper.cpp and download the default local model
 ```
 
 ## Branch Workflow

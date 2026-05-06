@@ -3,6 +3,7 @@ dist/
 out/
 release/
 coverage/
+.local/
 *.log
 *.tsbuildinfo
 *.db
@@ -11,3 +12,5 @@ coverage/
 .DS_Store
 data/*.sqlite
 data/*.sqlite-*
+apps/api/data/
+apps/api/models/
