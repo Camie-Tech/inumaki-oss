@@ -100,7 +100,7 @@ It was auto-generated from a first-pass repository scan and should be refined as
 - API app: Express + TypeScript. Routes cover `/dictations`, `/settings`, `/admin/users`, `/admin/usage`, and `/health`.
 - Shared package exports output modes, labels, default settings, and API contract types.
 - SQLite is the MVP persistence layer via `better-sqlite3` and Drizzle schema definitions. API creates tables on startup.
-- Transcription is adapter-based through `WHISPER_CPP_BINARY` and `WHISPER_MODEL_PATH`; `INUMAKI_ALLOW_MOCK_TRANSCRIPTION=true` enables local dev without Whisper.
+- Transcription uses local whisper.cpp with a ggml model; run `pnpm setup:whisper` or set `WHISPER_CPP_BINARY` and `WHISPER_MODEL_PATH`.
 - Rewrite uses Groq when `GROQ_API_KEY` is configured; otherwise the API uses deterministic local cleanup fallback.
 
 ## Commands
@@ -196,7 +196,9 @@ GROQ_MODEL=llama-3.3-70b-versatile
 # Local Whisper adapter. Point this to a whisper.cpp-compatible binary.
 WHISPER_CPP_BINARY=
 WHISPER_MODEL_PATH=
-INUMAKI_ALLOW_MOCK_TRANSCRIPTION=false
+WHISPER_CPP_HOME=.local/whisper.cpp
+WHISPER_CPP_MODEL=base.en
+WHISPER_CPP_THREADS=4
 
 # Desktop
 INUMAKI_API_BASE_URL=http://127.0.0.1:4141
@@ -495,10 +497,11 @@ export const config = {
   groqModel: process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
   host: process.env.HOST ?? "127.0.0.1",
   port: Number(process.env.INUMAKI_API_PORT ?? 4141),
-  allowMockTranscription:
-    process.env.INUMAKI_ALLOW_MOCK_TRANSCRIPTION === "true",
   whisperBinary: process.env.WHISPER_CPP_BINARY ?? "",
+  whisperCppHome: process.env.WHISPER_CPP_HOME ?? ".local/whisper.cpp",
+  whisperModelName: process.env.WHISPER_CPP_MODEL ?? "base.en",
   whisperModelPath: process.env.WHISPER_MODEL_PATH ?? "",
+  whisperThreads: Number(process.env.WHISPER_CPP_THREADS ?? 4),
 };
 ```
 
@@ -701,13 +704,9 @@ import { config } from "../config";
 const execFileAsync = promisify(execFile);
 
 export async function transcribeAudio(audioPath: string): Promise<string> {
-  if (config.allowMockTranscription) {
-    return "This is a mock transcript for local development.";
-  }
-
   if (!config.whisperBinary || !config.whisperModelPath) {
     throw new Error(
-      "Local transcription is not configured. Set WHISPER_CPP_BINARY and WHISPER_MODEL_PATH, or use INUMAKI_ALLOW_MOCK_TRANSCRIPTION=true for development.",
+      "Local transcription is not configured. Run `pnpm setup:whisper`, or set WHISPER_CPP_BINARY and WHISPER_MODEL_PATH.",
     );
   }
 
@@ -10964,14 +10963,18 @@ pnpm dev
 
 The API runs on `http://127.0.0.1:4141` by default. The desktop app reads `INUMAKI_API_BASE_URL`, defaulting to that local API URL.
 
-For local transcription, configure a whisper.cpp-compatible binary:
+For local transcription, install whisper.cpp and a ggml model:
+
+```bash
+pnpm setup:whisper
+```
+
+Or configure an existing local whisper.cpp installation:
 
 ```bash
 WHISPER_CPP_BINARY=/path/to/whisper-cli
 WHISPER_MODEL_PATH=/path/to/ggml-model.bin
 ```
-
-For development without Whisper installed, set `INUMAKI_ALLOW_MOCK_TRANSCRIPTION=true`.
 
 ## Common Commands
 

@@ -13,6 +13,7 @@
     "dev": "pnpm --parallel --filter @inumaki/api --filter @inumaki/desktop dev",
     "dev:api": "pnpm --filter @inumaki/api dev",
     "dev:desktop": "pnpm --filter @inumaki/desktop dev",
+    "setup:whisper": "node scripts/setup-whisper.cpp.mjs",
     "build": "pnpm -r build",
     "lint": "eslint .",
     "test": "pnpm -r test",
@@ -33,7 +34,8 @@
       "better-sqlite3",
       "electron",
       "electron-winstaller",
-      "esbuild"
+      "esbuild",
+      "ffmpeg-static"
     ]
   }
 }

@@ -15,7 +15,7 @@ It was auto-generated from a first-pass repository scan and should be refined as
 - API app: Express + TypeScript. Routes cover `/dictations`, `/settings`, `/admin/users`, `/admin/usage`, and `/health`.
 - Shared package exports output modes, labels, default settings, and API contract types.
 - SQLite is the MVP persistence layer via `better-sqlite3` and Drizzle schema definitions. API creates tables on startup.
-- Transcription is adapter-based through `WHISPER_CPP_BINARY` and `WHISPER_MODEL_PATH`; `INUMAKI_ALLOW_MOCK_TRANSCRIPTION=true` enables local dev without Whisper.
+- Transcription uses local whisper.cpp. `pnpm setup:whisper` clones/builds official whisper.cpp under `.local/whisper.cpp` and downloads the configured ggml model; `WHISPER_CPP_BINARY` and `WHISPER_MODEL_PATH` can override resolution.
 - Rewrite uses Groq when `GROQ_API_KEY` is configured; otherwise the API uses deterministic local cleanup fallback.
 
 ## Commands
@@ -30,6 +30,7 @@ It was auto-generated from a first-pass repository scan and should be refined as
 - `pnpm build`
 - `pnpm --filter @inumaki/desktop dist:win` builds the Windows distributable.
 - `pnpm dist:win` builds the Windows desktop installer from the repo root.
+- `pnpm setup:whisper` builds local whisper.cpp and downloads the default ggml transcription model.
 - API port is configured with `INUMAKI_API_PORT` and defaults to `4141`; desktop defaults to `INUMAKI_API_BASE_URL` or that same port.
 
 ## Conventions
@@ -37,6 +38,7 @@ It was auto-generated from a first-pass repository scan and should be refined as
 - TypeScript is strict across the workspace.
 - Use shared output/settings contracts from `packages/shared` rather than duplicating mode strings.
 - Desktop UI uses Tailwind defaults, `cn` from `clsx` + `tailwind-merge`, lucide icons, Radix Dialog for previews, and Radix AlertDialog for destructive confirmations.
+- Mock transcription is forbidden; development and production must use local whisper.cpp inference.
 - The API should not retain raw audio; uploaded audio is temporary and deleted after dictation processing.
 - No authentication is implemented for the MVP; admin controls are intentionally lightweight.
 
@@ -61,7 +63,8 @@ It was auto-generated from a first-pass repository scan and should be refined as
 
 - Electron `globalShortcut` is currently toggle-style; true press-and-hold keyup capture will need a Windows global keyboard hook library or native module.
 - Windows auto-paste is implemented with clipboard plus PowerShell SendKeys and is only active on `win32`.
-- Whisper integration expects a whisper.cpp-compatible CLI and model path; no model binaries are committed.
+- Whisper integration expects a whisper.cpp-compatible CLI and ggml model; run `pnpm setup:whisper` because no model binaries are committed.
+- `pnpm setup:whisper` requires git, CMake, and a C++ build toolchain.
 - Groq model is configurable via `GROQ_MODEL`; verify model choice before production use.
 - `better-sqlite3`, Electron, and esbuild require pnpm approved build scripts; root `package.json` records these under `pnpm.onlyBuiltDependencies`.
 
