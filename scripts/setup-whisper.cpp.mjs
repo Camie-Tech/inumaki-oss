@@ -42,10 +42,14 @@ async function main() {
     run("git", ["checkout", whisperRef], { cwd: whisperHome });
   }
 
-  run("cmake", ["-B", "build", "-DCMAKE_BUILD_TYPE=Release"], {
-    cwd: whisperHome,
-  });
-  run("cmake", ["--build", "build", "--config", "Release", "-j"], {
+  run(
+    "cmake",
+    ["-B", "build", "-DCMAKE_BUILD_TYPE=Release", ...cmakeGeneratorArgs()],
+    {
+      cwd: whisperHome,
+    },
+  );
+  run("cmake", ["--build", "build", "--config", "Release", "--parallel"], {
     cwd: whisperHome,
   });
 
@@ -78,6 +82,46 @@ function run(command, args, options = {}) {
   if (result.status !== 0) {
     throw new Error(`Command failed: ${command} ${args.join(" ")}`);
   }
+}
+
+function cmakeGeneratorArgs() {
+  const configuredGenerator = process.env.WHISPER_CPP_CMAKE_GENERATOR?.trim();
+  if (configuredGenerator) {
+    return ["-G", configuredGenerator, ...cmakeArchitectureArgs()];
+  }
+
+  if (process.platform !== "win32") {
+    return [];
+  }
+
+  if (commandExists("ninja")) {
+    return ["-G", "Ninja"];
+  }
+
+  if (commandExists("nmake") && commandExists("cl")) {
+    return ["-G", "NMake Makefiles"];
+  }
+
+  return ["-G", "Visual Studio 17 2022", "-A", "x64"];
+}
+
+function cmakeArchitectureArgs() {
+  const architecture = process.env.WHISPER_CPP_CMAKE_ARCHITECTURE?.trim();
+  return architecture ? ["-A", architecture] : [];
+}
+
+function commandExists(command) {
+  const result = spawnSync(
+    process.platform === "win32" ? "where" : "which",
+    [command],
+    {
+      cwd: repoRoot,
+      stdio: "ignore",
+      shell: process.platform === "win32",
+    },
+  );
+
+  return result.status === 0;
 }
 
 function modelUrl(name) {
