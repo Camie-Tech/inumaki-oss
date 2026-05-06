@@ -1,4 +1,9 @@
-import { defaultSettings, type UserSettings } from "@inumaki/shared";
+import {
+  defaultSettings,
+  outputModes,
+  type OutputMode,
+  type UserSettings,
+} from "@inumaki/shared";
 import { Router } from "express";
 import { z } from "zod";
 
@@ -7,6 +12,15 @@ import { preferences } from "../db/schema";
 
 const settingsSchema = z.object({
   autoPaste: z.boolean(),
+  captureHotkeys: z.record(
+    z.enum([
+      "raw-transcript",
+      "clean-text",
+      "polished-message",
+      "coding-prompt",
+    ]),
+    z.string(),
+  ),
   defaultMode: z.enum([
     "raw-transcript",
     "clean-text",
@@ -48,6 +62,7 @@ export function readSettings(): UserSettings {
 
   return {
     autoPaste: readBoolean(values, "autoPaste", defaultSettings.autoPaste),
+    captureHotkeys: readCaptureHotkeys(values),
     defaultMode: readString(
       values,
       "defaultMode",
@@ -70,6 +85,26 @@ export function readSettings(): UserSettings {
       defaultSettings.tonePreference,
     ),
   };
+}
+
+function readCaptureHotkeys(
+  values: Map<string, string>,
+): UserSettings["captureHotkeys"] {
+  const stored = readJson<Record<string, string>>(values, "captureHotkeys", {});
+
+  return Object.fromEntries(
+    outputModes.map((mode) => [
+      mode,
+      typeof stored[mode] === "string"
+        ? stored[mode]
+        : defaultSettings.captureHotkeys[mode],
+    ]),
+  ) as Record<OutputMode, string>;
+}
+
+function readJson<T>(values: Map<string, string>, key: string, fallback: T): T {
+  const raw = values.get(key);
+  return raw ? JSON.parse(raw) : fallback;
 }
 
 function readString(

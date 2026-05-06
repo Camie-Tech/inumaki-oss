@@ -33,6 +33,7 @@ export type DictationStatus =
 
 export interface UserSettings {
   autoPaste: boolean;
+  captureHotkeys: Record<OutputMode, string>;
   defaultMode: OutputMode;
   hotkey: string;
   microphoneId: string | null;
@@ -42,6 +43,12 @@ export interface UserSettings {
 
 export const defaultSettings: UserSettings = {
   autoPaste: true,
+  captureHotkeys: {
+    "raw-transcript": "CommandOrControl+Alt+1",
+    "clean-text": "CommandOrControl+Alt+2",
+    "polished-message": "CommandOrControl+Alt+3",
+    "coding-prompt": "CommandOrControl+Alt+4",
+  },
   defaultMode: "clean-text",
   hotkey: "CommandOrControl+Shift+Space",
   microphoneId: null,
