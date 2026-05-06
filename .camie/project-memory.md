@@ -36,7 +36,7 @@ It was auto-generated from a first-pass repository scan and should be refined as
 
 - TypeScript is strict across the workspace.
 - Use shared output/settings contracts from `packages/shared` rather than duplicating mode strings.
-- Desktop UI uses Tailwind defaults, `cn` from `clsx` + `tailwind-merge`, lucide icons, and Radix Dialog for modal behavior.
+- Desktop UI uses Tailwind defaults, `cn` from `clsx` + `tailwind-merge`, lucide icons, Radix Dialog for previews, and Radix AlertDialog for destructive confirmations.
 - The API should not retain raw audio; uploaded audio is temporary and deleted after dictation processing.
 - No authentication is implemented for the MVP; admin controls are intentionally lightweight.
 
