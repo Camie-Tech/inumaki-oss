@@ -30,9 +30,31 @@ Maintainers create that downloadable installer by pushing a version tag or manua
 
 ## Setup
 
-### Native prerequisites
+### Platform prerequisites
 
-The API transcribes locally with whisper.cpp. Install Node/pnpm plus the native tools required to build whisper.cpp before running the app.
+The API transcribes locally with whisper.cpp.
+
+Windows does not require Visual Studio or a local C++ compiler for the default setup. The setup script downloads the official `whisper-bin-x64.zip` release asset, extracts `whisper-cli.exe`, and downloads the configured ggml model.
+
+Windows:
+
+1. Install Node.js and pnpm.
+2. Use PowerShell.
+3. Run `pnpm setup:whisper`.
+
+Optional Windows overrides:
+
+```powershell
+$env:WHISPER_CPP_WINDOWS_ASSET = "whisper-bin-x64.zip"
+pnpm setup:whisper
+
+$env:WHISPER_CPP_WINDOWS_ASSET = "whisper-blas-bin-x64.zip"
+pnpm setup:whisper
+```
+
+Only set `WHISPER_CPP_BUILD_FROM_SOURCE=true` if you intentionally want to compile whisper.cpp on Windows. Source builds require a real compiler toolchain such as Visual Studio Build Tools, Ninja, or another CMake-compatible C++ setup; VS Code alone is not a compiler.
+
+Linux and macOS build whisper.cpp from source by default. Install the native tools first.
 
 Ubuntu/Debian:
 
@@ -48,34 +70,12 @@ xcode-select --install
 brew install cmake
 ```
 
-Windows:
-
-1. Install Git for Windows.
-2. Install Visual Studio Build Tools with the "Desktop development with C++" workload.
-3. Install CMake and make sure it is available on `PATH`.
-4. Recommended: install Ninja so setup can build from normal PowerShell:
-
-   ```powershell
-   winget install Ninja-build.Ninja
-   ```
-
-5. Run setup commands from PowerShell. If you do not install Ninja, run from "x64 Native Tools Command Prompt for VS 2022" or use the default Visual Studio generator selected by the setup script.
-
 Verify the native toolchain:
 
 ```bash
 git --version
 cmake --version
 g++ --version # Linux/macOS
-```
-
-On Windows, verify the relevant compiler tool from the shell you will use:
-
-```powershell
-where cmake
-where ninja # if installed
-where cl    # when using Visual Studio/NMake tools
-where nmake # only needed when forcing NMake
 ```
 
 ### Project setup
@@ -87,9 +87,11 @@ pnpm setup:whisper
 pnpm dev
 ```
 
+On Windows PowerShell, use `Copy-Item .env.example .env` instead of `cp .env.example .env`.
+
 The API runs on `http://127.0.0.1:4141` by default. The desktop app reads `INUMAKI_API_BASE_URL`, defaulting to that local API URL.
 
-`pnpm setup:whisper` clones official whisper.cpp under `.local/whisper.cpp`, builds `whisper-cli`, and downloads `ggml-base.en.bin` by default. No Whisper binaries or models are committed to the repo.
+`pnpm setup:whisper` prepares whisper.cpp under `.local/whisper.cpp` and downloads `ggml-base.en.bin` by default. On Windows it downloads the official prebuilt release zip; on Linux/macOS it clones and builds whisper.cpp from source. No Whisper binaries or models are committed to the repo.
 
 Useful setup overrides:
 
@@ -98,19 +100,6 @@ WHISPER_CPP_REF=v1.8.4 pnpm setup:whisper
 WHISPER_CPP_MODEL=small.en pnpm setup:whisper
 WHISPER_CPP_HOME=.local/whisper.cpp pnpm setup:whisper
 ```
-
-Windows generator overrides:
-
-```powershell
-$env:WHISPER_CPP_CMAKE_GENERATOR = "Ninja"
-pnpm setup:whisper
-
-$env:WHISPER_CPP_CMAKE_GENERATOR = "Visual Studio 17 2022"
-$env:WHISPER_CPP_CMAKE_ARCHITECTURE = "x64"
-pnpm setup:whisper
-```
-
-If CMake prints `Building for: NMake Makefiles` and then fails because `nmake`, `CMAKE_C_COMPILER`, or `CMAKE_CXX_COMPILER` is missing, the shell does not have the Visual Studio build tools on `PATH`. Install Ninja, run from the x64 Visual Studio tools shell, or set `WHISPER_CPP_CMAKE_GENERATOR` to `Visual Studio 17 2022`.
 
 You can also bypass the managed install with an existing local whisper.cpp binary and ggml model:
 
@@ -130,7 +119,7 @@ pnpm typecheck    # Type-check all packages
 pnpm test         # Run unit tests where present
 pnpm build        # Build all packages
 pnpm dist:win     # Build the Windows desktop installer
-pnpm setup:whisper # Build whisper.cpp and download the default local model
+pnpm setup:whisper # Prepare whisper.cpp and download the default local model
 ```
 
 ## Branch Workflow

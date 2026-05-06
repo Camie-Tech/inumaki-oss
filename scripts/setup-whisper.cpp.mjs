@@ -12,6 +12,7 @@ const whisperHome = path.resolve(
   process.env.WHISPER_CPP_HOME ?? ".local/whisper.cpp",
 );
 const modelPath = path.join(whisperHome, "models", `ggml-${modelName}.bin`);
+const buildFromSource = process.env.WHISPER_CPP_BUILD_FROM_SOURCE === "true";
 
 try {
   await main();
@@ -21,6 +22,61 @@ try {
 }
 
 async function main() {
+  if (process.platform === "win32" && !buildFromSource) {
+    await setupWindowsBinary();
+  } else {
+    setupFromSource();
+  }
+
+  if (!fs.existsSync(modelPath)) {
+    fs.mkdirSync(path.dirname(modelPath), { recursive: true });
+    await downloadFile(modelUrl(modelName), modelPath);
+  }
+
+  console.log(`whisper.cpp ready:
+  WHISPER_CPP_HOME=${path.relative(repoRoot, whisperHome)}
+  WHISPER_CPP_MODEL=${modelName}
+  WHISPER_MODEL_PATH=${path.relative(repoRoot, modelPath)}
+`);
+}
+
+async function setupWindowsBinary() {
+  const assetName =
+    process.env.WHISPER_CPP_WINDOWS_ASSET ?? defaultWindowsAsset();
+  const assetId = `${whisperRef}/${assetName}`;
+  const binaryDir = path.join(whisperHome, "build", "bin");
+  const markerPath = path.join(binaryDir, ".windows-asset");
+  const binaryPath = path.join(binaryDir, "Release", "whisper-cli.exe");
+
+  if (
+    fs.existsSync(binaryPath) &&
+    fs.existsSync(markerPath) &&
+    fs.readFileSync(markerPath, "utf8") === assetId
+  ) {
+    return;
+  }
+
+  fs.rmSync(binaryDir, { force: true, recursive: true });
+  fs.mkdirSync(binaryDir, { recursive: true });
+
+  const zipPath = path.join(whisperHome, "downloads", whisperRef, assetName);
+  if (!fs.existsSync(zipPath)) {
+    fs.mkdirSync(path.dirname(zipPath), { recursive: true });
+    await downloadFile(windowsAssetUrl(assetName), zipPath);
+  }
+
+  extractZip(zipPath, binaryDir);
+
+  if (!fs.existsSync(binaryPath)) {
+    throw new Error(
+      `Windows whisper.cpp binary was not found after extracting ${assetName}. Expected ${binaryPath}.`,
+    );
+  }
+
+  fs.writeFileSync(markerPath, assetId);
+}
+
+function setupFromSource() {
   run("git", ["--version"]);
   run("cmake", ["--version"]);
 
@@ -54,17 +110,6 @@ async function main() {
   run("cmake", ["--build", "build", "--config", "Release", "--parallel"], {
     cwd: whisperHome,
   });
-
-  if (!fs.existsSync(modelPath)) {
-    fs.mkdirSync(path.dirname(modelPath), { recursive: true });
-    await downloadFile(modelUrl(modelName), modelPath);
-  }
-
-  console.log(`whisper.cpp ready:
-  WHISPER_CPP_HOME=${path.relative(repoRoot, whisperHome)}
-  WHISPER_CPP_MODEL=${modelName}
-  WHISPER_MODEL_PATH=${path.relative(repoRoot, modelPath)}
-`);
 }
 
 function run(command, args, options = {}) {
@@ -158,6 +203,32 @@ function commandExists(command) {
   );
 
   return result.status === 0;
+}
+
+function defaultWindowsAsset() {
+  return process.arch === "ia32"
+    ? "whisper-bin-Win32.zip"
+    : "whisper-bin-x64.zip";
+}
+
+function windowsAssetUrl(assetName) {
+  return `https://github.com/ggml-org/whisper.cpp/releases/download/${whisperRef}/${assetName}`;
+}
+
+function extractZip(zipPath, destination) {
+  const powershell = commandExists("powershell.exe")
+    ? "powershell.exe"
+    : "powershell";
+
+  run(powershell, [
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-Command",
+    "Expand-Archive -LiteralPath $args[0] -DestinationPath $args[1] -Force",
+    zipPath,
+    destination,
+  ]);
 }
 
 function modelUrl(name) {
