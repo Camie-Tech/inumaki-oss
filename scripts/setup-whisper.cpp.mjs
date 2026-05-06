@@ -42,9 +42,11 @@ async function main() {
     run("git", ["checkout", whisperRef], { cwd: whisperHome });
   }
 
+  const generatorArgs = cmakeGeneratorArgs();
+  prepareBuildDirectory(generatorArgs);
   run(
     "cmake",
-    ["-B", "build", "-DCMAKE_BUILD_TYPE=Release", ...cmakeGeneratorArgs()],
+    ["-B", "build", "-DCMAKE_BUILD_TYPE=Release", ...generatorArgs],
     {
       cwd: whisperHome,
     },
@@ -69,7 +71,6 @@ function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: repoRoot,
     stdio: "inherit",
-    shell: process.platform === "win32",
     ...options,
   });
 
@@ -110,6 +111,42 @@ function cmakeArchitectureArgs() {
   return architecture ? ["-A", architecture] : [];
 }
 
+function prepareBuildDirectory(generatorArgs) {
+  if (process.platform !== "win32") {
+    return;
+  }
+
+  const buildDir = path.join(whisperHome, "build");
+  if (!fs.existsSync(buildDir)) {
+    return;
+  }
+
+  const expectedGenerator = generatorFromArgs(generatorArgs);
+  const existingGenerator = generatorFromCache(
+    path.join(buildDir, "CMakeCache.txt"),
+  );
+
+  if (!existingGenerator || existingGenerator !== expectedGenerator) {
+    fs.rmSync(buildDir, { force: true, recursive: true });
+  }
+}
+
+function generatorFromArgs(generatorArgs) {
+  const generatorIndex = generatorArgs.indexOf("-G");
+  return generatorIndex >= 0 ? generatorArgs[generatorIndex + 1] : "";
+}
+
+function generatorFromCache(cachePath) {
+  if (!fs.existsSync(cachePath)) {
+    return "";
+  }
+
+  const match = fs
+    .readFileSync(cachePath, "utf8")
+    .match(/^CMAKE_GENERATOR:INTERNAL=(.+)$/m);
+  return match?.[1] ?? "";
+}
+
 function commandExists(command) {
   const result = spawnSync(
     process.platform === "win32" ? "where" : "which",
@@ -117,7 +154,6 @@ function commandExists(command) {
     {
       cwd: repoRoot,
       stdio: "ignore",
-      shell: process.platform === "win32",
     },
   );
 
