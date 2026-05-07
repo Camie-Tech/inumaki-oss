@@ -565,6 +565,17 @@ export function App() {
                     />
                   </Field>
 
+                  <Toggle
+                    checked={draftSettings.launchAtLogin}
+                    label="Launch at login"
+                    onChange={(checked) =>
+                      setDraftSettings({
+                        ...draftSettings,
+                        launchAtLogin: checked,
+                      })
+                    }
+                  />
+
                   <div className="border-t border-zinc-200 pt-4">
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <p className="text-sm font-semibold text-zinc-950">

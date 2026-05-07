@@ -36,6 +36,7 @@ export interface UserSettings {
   captureHotkeys: Record<OutputMode, string>;
   defaultMode: OutputMode;
   hotkey: string;
+  launchAtLogin: boolean;
   microphoneId: string | null;
   previewBeforePaste: boolean;
   tonePreference: string;
@@ -51,6 +52,7 @@ export const defaultSettings: UserSettings = {
   },
   defaultMode: "clean-text",
   hotkey: "CommandOrControl+Shift+Space",
+  launchAtLogin: true,
   microphoneId: null,
   previewBeforePaste: false,
   tonePreference: "clear and concise",
