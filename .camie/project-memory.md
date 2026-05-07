@@ -11,7 +11,7 @@ It was auto-generated from a first-pass repository scan and should be refined as
 ## Architecture
 
 - pnpm monorepo with `apps/desktop`, `apps/api`, and `packages/shared`.
-- Desktop app: Electron + React + TypeScript + electron-vite. Main process owns tray, global shortcut registration, clipboard, and Windows paste IPC; renderer owns MediaRecorder capture, output mode selection, settings, preview, and admin UI.
+- Desktop app: Electron + React + TypeScript + electron-vite. Main process owns tray, default and per-mode global shortcut registration, clipboard, and Windows paste IPC; renderer owns MediaRecorder capture, output mode selection, settings, preview, and admin UI.
 - API app: Express + TypeScript. Routes cover `/dictations`, `/settings`, `/admin/users`, `/admin/usage`, and `/health`.
 - Shared package exports output modes, labels, default settings, and API contract types.
 - SQLite is the MVP persistence layer via `better-sqlite3` and Drizzle schema definitions. API creates tables on startup.
@@ -36,7 +36,7 @@ It was auto-generated from a first-pass repository scan and should be refined as
 ## Conventions
 
 - TypeScript is strict across the workspace.
-- Use shared output/settings contracts from `packages/shared` rather than duplicating mode strings.
+- Use shared output/settings contracts from `packages/shared` rather than duplicating mode strings. `UserSettings.captureHotkeys` maps each output mode to its direct-capture accelerator.
 - Desktop UI uses Tailwind defaults, `cn` from `clsx` + `tailwind-merge`, lucide icons, Radix Dialog for previews, and Radix AlertDialog for destructive confirmations.
 - Mock transcription is forbidden; development and production must use local whisper.cpp inference.
 - The API should not retain raw audio; uploaded audio is temporary and deleted after dictation processing.

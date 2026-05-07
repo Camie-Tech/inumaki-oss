@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-import type { UserSettings } from "@inumaki/shared";
+import type { OutputMode, UserSettings } from "@inumaki/shared";
 
 contextBridge.exposeInMainWorld("inumaki", {
   getApiBaseUrl: () =>
@@ -13,8 +13,11 @@ contextBridge.exposeInMainWorld("inumaki", {
     ipcRenderer.invoke("clipboard:write-text", text) as Promise<void>,
   pasteIntoActiveApp: () =>
     ipcRenderer.invoke("paste:active-window") as Promise<void>,
-  onHotkeyPressed: (callback: () => void) => {
-    const listener = () => callback();
+  onHotkeyPressed: (callback: (mode: OutputMode | null) => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      mode: OutputMode | null,
+    ) => callback(mode);
     ipcRenderer.on("hotkey:pressed", listener);
     return () => ipcRenderer.removeListener("hotkey:pressed", listener);
   },

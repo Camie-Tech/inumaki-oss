@@ -14,7 +14,12 @@ import path from "node:path";
 import { execFile } from "node:child_process";
 import fs from "node:fs";
 
-import { defaultSettings, type UserSettings } from "@inumaki/shared";
+import {
+  defaultSettings,
+  outputModes,
+  type OutputMode,
+  type UserSettings,
+} from "@inumaki/shared";
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -87,12 +92,21 @@ function createTray(): void {
 
 function registerHotkey(settings: UserSettings): void {
   globalShortcut.unregisterAll();
-  const registered = globalShortcut.register(settings.hotkey, () => {
-    mainWindow?.webContents.send("hotkey:pressed");
-  });
+  const registeredAccelerators = new Set<string>();
 
-  if (!registered) {
-    console.warn(`Unable to register global shortcut: ${settings.hotkey}`);
+  registerCaptureShortcut(
+    settings.hotkey,
+    "default capture",
+    registeredAccelerators,
+  );
+
+  for (const mode of outputModes) {
+    registerCaptureShortcut(
+      settings.captureHotkeys[mode],
+      `${mode} capture`,
+      registeredAccelerators,
+      mode,
+    );
   }
 }
 
@@ -102,18 +116,57 @@ function readSettings(): UserSettings {
       return defaultSettings;
     }
     const raw = fs.readFileSync(settingsPath(), "utf8");
-    return { ...defaultSettings, ...JSON.parse(raw) };
+    return normalizeSettings(JSON.parse(raw));
   } catch {
     return defaultSettings;
   }
 }
 
+function normalizeSettings(settings: Partial<UserSettings>): UserSettings {
+  return {
+    ...defaultSettings,
+    ...settings,
+    captureHotkeys: {
+      ...defaultSettings.captureHotkeys,
+      ...settings.captureHotkeys,
+    },
+  };
+}
+
+function registerCaptureShortcut(
+  accelerator: string,
+  label: string,
+  registeredAccelerators: Set<string>,
+  mode: OutputMode | null = null,
+): void {
+  const normalizedAccelerator = accelerator.trim();
+  if (
+    !normalizedAccelerator ||
+    registeredAccelerators.has(normalizedAccelerator)
+  ) {
+    return;
+  }
+
+  const registered = globalShortcut.register(normalizedAccelerator, () => {
+    mainWindow?.webContents.send("hotkey:pressed", mode);
+  });
+
+  if (registered) {
+    registeredAccelerators.add(normalizedAccelerator);
+  } else {
+    console.warn(
+      `Unable to register ${label} shortcut: ${normalizedAccelerator}`,
+    );
+  }
+}
+
 function writeSettings(settings: UserSettings): UserSettings {
+  const normalizedSettings = normalizeSettings(settings);
   fs.mkdirSync(path.dirname(settingsPath()), { recursive: true });
-  fs.writeFileSync(settingsPath(), JSON.stringify(settings, null, 2));
-  currentSettings = settings;
-  registerHotkey(settings);
-  return settings;
+  fs.writeFileSync(settingsPath(), JSON.stringify(normalizedSettings, null, 2));
+  currentSettings = normalizedSettings;
+  registerHotkey(normalizedSettings);
+  return normalizedSettings;
 }
 
 async function pasteIntoActiveWindow(): Promise<void> {
