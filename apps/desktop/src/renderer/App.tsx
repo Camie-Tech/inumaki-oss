@@ -82,6 +82,7 @@ export function App() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const startedAtRef = useRef<number>(0);
+  const captureModeRef = useRef<OutputMode>(defaultSettings.defaultMode);
 
   useEffect(() => {
     void Promise.all([
@@ -92,8 +93,13 @@ export function App() {
       setSettings(storedSettings);
       setDraftSettings(storedSettings);
       setActiveMode(storedSettings.defaultMode);
+      captureModeRef.current = storedSettings.defaultMode;
     });
   }, []);
+
+  useEffect(() => {
+    captureModeRef.current = activeMode;
+  }, [activeMode]);
 
   useEffect(() => {
     void navigator.mediaDevices?.enumerateDevices?.().then((items) => {
@@ -108,14 +114,14 @@ export function App() {
   }, [status]);
 
   useEffect(() => {
-    return window.inumaki.onHotkeyPressed(() => {
+    return window.inumaki.onHotkeyPressed((mode) => {
       if (status === "recording") {
         void stopRecording();
       } else if (status !== "processing") {
-        void startRecording();
+        void startRecording(mode ?? activeMode);
       }
     });
-  }, [status]);
+  }, [activeMode, status]);
 
   useEffect(() => {
     if (view !== "admin") {
@@ -146,9 +152,11 @@ export function App() {
   const activeView = viewMeta[view];
   const hasResult = Boolean(lastResult);
 
-  async function startRecording() {
+  async function startRecording(mode: OutputMode = activeMode) {
     setError("");
+    setActiveMode(mode);
     setStatus("recording");
+    captureModeRef.current = mode;
     chunksRef.current = [];
     startedAtRef.current = performance.now();
 
@@ -201,7 +209,7 @@ export function App() {
         apiBaseUrl,
         audio,
         audioSeconds,
-        mode: activeMode,
+        mode: captureModeRef.current,
       });
       setLastResult(result);
       setPreviewText(result.finalText);
@@ -567,6 +575,36 @@ export function App() {
                       })
                     }
                   />
+
+                  <div className="border-t border-zinc-200 pt-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-zinc-950">
+                        Mode commands
+                      </p>
+                      <span className="text-xs text-zinc-500">
+                        Start directly
+                      </span>
+                    </div>
+                    <div className="grid gap-3">
+                      {outputModes.map((mode) => (
+                        <Field key={mode} label={outputModeLabels[mode]}>
+                          <input
+                            className={fieldClassName}
+                            value={draftSettings.captureHotkeys[mode]}
+                            onChange={(event) =>
+                              setDraftSettings({
+                                ...draftSettings,
+                                captureHotkeys: {
+                                  ...draftSettings.captureHotkeys,
+                                  [mode]: event.target.value,
+                                },
+                              })
+                            }
+                          />
+                        </Field>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </Panel>
 

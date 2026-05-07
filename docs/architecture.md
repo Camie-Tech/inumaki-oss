@@ -7,7 +7,7 @@ Inumaki AI is split into a Windows-first desktop client and a backend API.
 The Electron app owns:
 
 - tray lifecycle and window visibility
-- global shortcut registration
+- default and per-mode global shortcut registration
 - packaged app launch-at-login registration
 - microphone capture through browser `MediaRecorder`
 - output mode, settings, and preview UI

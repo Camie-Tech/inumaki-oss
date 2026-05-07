@@ -1,4 +1,4 @@
-import type { UserSettings } from "@inumaki/shared";
+import type { OutputMode, UserSettings } from "@inumaki/shared";
 
 declare global {
   interface Window {
@@ -8,7 +8,9 @@ declare global {
       setSettings: (settings: UserSettings) => Promise<UserSettings>;
       writeClipboard: (text: string) => Promise<void>;
       pasteIntoActiveApp: () => Promise<void>;
-      onHotkeyPressed: (callback: () => void) => () => void;
+      onHotkeyPressed: (
+        callback: (mode: OutputMode | null) => void,
+      ) => () => void;
     };
   }
 }
