@@ -8,10 +8,11 @@ import {
   ipcMain,
   Menu,
   nativeImage,
+  screen,
   Tray,
 } from "electron";
 import path from "node:path";
-import { execFile } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import fs from "node:fs";
 
 import {
@@ -21,10 +22,21 @@ import {
   type UserSettings,
 } from "@inumaki/shared";
 
+interface CaptureOverlayState {
+  phase: "recording" | "processing" | "result" | "error";
+  modeLabel: string;
+  level?: number;
+  text?: string;
+  error?: string;
+}
+
 let mainWindow: BrowserWindow | null = null;
+let captureOverlayWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let currentSettings = readSettings();
 let isQuitting = false;
+let pasteTargetWindowHandle: string | null = null;
+let captureOverlayState: CaptureOverlayState | null = null;
 
 const apiPort = process.env.INUMAKI_API_PORT ?? "4141";
 const apiBaseUrl =
@@ -67,6 +79,71 @@ function createWindow(): void {
       mainWindow?.show();
     }
   });
+}
+
+function createCaptureOverlayWindow(): BrowserWindow {
+  if (captureOverlayWindow && !captureOverlayWindow.isDestroyed()) {
+    return captureOverlayWindow;
+  }
+
+  captureOverlayWindow = new BrowserWindow({
+    width: 560,
+    height: 132,
+    minWidth: 560,
+    minHeight: 132,
+    maxWidth: 560,
+    frame: false,
+    resizable: false,
+    movable: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    show: false,
+    title: "Inumaki Capture",
+    backgroundColor: "#ffffff",
+    webPreferences: {
+      preload: path.join(__dirname, "../preload/index.js"),
+      sandbox: false,
+      contextIsolation: true,
+    },
+  });
+
+  captureOverlayWindow.setAlwaysOnTop(true, "screen-saver");
+  captureOverlayWindow.on("closed", () => {
+    captureOverlayWindow = null;
+  });
+  captureOverlayWindow.webContents.on("did-finish-load", () => {
+    if (captureOverlayState) {
+      captureOverlayWindow?.webContents.send(
+        "capture-overlay:state",
+        captureOverlayState,
+      );
+    }
+  });
+
+  if (process.env.ELECTRON_RENDERER_URL) {
+    void captureOverlayWindow.loadURL(
+      `${process.env.ELECTRON_RENDERER_URL}#/capture-overlay`,
+    );
+  } else {
+    void captureOverlayWindow.loadFile(
+      path.join(__dirname, "../renderer/index.html"),
+      { hash: "capture-overlay" },
+    );
+  }
+
+  return captureOverlayWindow;
+}
+
+function positionCaptureOverlay(height = 132): void {
+  if (!captureOverlayWindow || captureOverlayWindow.isDestroyed()) {
+    return;
+  }
+
+  const { workArea } = screen.getPrimaryDisplay();
+  const width = captureOverlayWindow.getSize()[0] ?? 560;
+  const x = Math.round(workArea.x + (workArea.width - width) / 2);
+  const y = Math.round(workArea.y + workArea.height - height - 28);
+  captureOverlayWindow.setBounds({ x, y, width, height });
 }
 
 function createTray(): void {
@@ -152,6 +229,7 @@ function registerCaptureShortcut(
   }
 
   const registered = globalShortcut.register(normalizedAccelerator, () => {
+    rememberPasteTargetWindow();
     mainWindow?.webContents.send("hotkey:pressed", mode);
   });
 
@@ -186,22 +264,72 @@ function syncLoginItemSettings(settings: UserSettings): void {
   });
 }
 
-async function pasteIntoActiveWindow(): Promise<void> {
+async function pasteIntoActiveWindow(): Promise<boolean> {
+  if (process.platform !== "win32") {
+    return false;
+  }
+
+  if (!pasteTargetWindowHandle) {
+    return false;
+  }
+
+  const pasteScript = [
+    "Add-Type -AssemblyName System.Windows.Forms;",
+    restorePasteTargetScript(),
+    "[System.Windows.Forms.SendKeys]::SendWait('^v')",
+  ].join(" ");
+
+  return await new Promise<boolean>((resolve) => {
+    execFile(
+      "powershell.exe",
+      ["-NoProfile", "-Command", pasteScript],
+      {
+        windowsHide: true,
+      },
+      (error) => {
+        resolve(!error);
+      },
+    );
+  });
+}
+
+function rememberPasteTargetWindow(): void {
   if (process.platform !== "win32") {
     return;
   }
 
-  await new Promise<void>((resolve, reject) => {
-    execFile(
+  try {
+    const output = execFileSync(
       "powershell.exe",
       [
         "-NoProfile",
         "-Command",
-        "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')",
+        [
+          "Add-Type -Namespace Inumaki -Name NativeMethods -MemberDefinition '[DllImport(\"user32.dll\")] public static extern System.IntPtr GetForegroundWindow();';",
+          "[Inumaki.NativeMethods]::GetForegroundWindow().ToInt64()",
+        ].join(" "),
       ],
-      (error) => (error ? reject(error) : resolve()),
-    );
-  });
+      { encoding: "utf8", windowsHide: true },
+    ).trim();
+
+    pasteTargetWindowHandle =
+      /^\d+$/.test(output) && output !== "0" ? output : null;
+  } catch {
+    pasteTargetWindowHandle = null;
+  }
+}
+
+function restorePasteTargetScript(): string {
+  if (!pasteTargetWindowHandle) {
+    return "";
+  }
+
+  return [
+    '$signature = \'[DllImport("user32.dll")] public static extern bool SetForegroundWindow(System.IntPtr hWnd); [DllImport("user32.dll")] public static extern bool ShowWindow(System.IntPtr hWnd, int nCmdShow);\';',
+    "Add-Type -Namespace Inumaki -Name NativeMethods -MemberDefinition $signature;",
+    `$hwnd = [System.IntPtr]::new(${pasteTargetWindowHandle});`,
+    "if ($hwnd -ne [System.IntPtr]::Zero) { [Inumaki.NativeMethods]::ShowWindow($hwnd, 9) | Out-Null; [Inumaki.NativeMethods]::SetForegroundWindow($hwnd) | Out-Null; Start-Sleep -Milliseconds 120; }",
+  ].join(" ");
 }
 
 ipcMain.handle("app:get-api-base-url", () => apiBaseUrl);
@@ -213,6 +341,41 @@ ipcMain.handle("clipboard:write-text", (_event, text: string) => {
   clipboard.writeText(text);
 });
 ipcMain.handle("paste:active-window", () => pasteIntoActiveWindow());
+ipcMain.handle("capture-overlay:show", (_event, state: CaptureOverlayState) => {
+  captureOverlayState = state;
+  const overlay = createCaptureOverlayWindow();
+  const height =
+    state.phase === "result" || state.phase === "error" ? 232 : 132;
+  positionCaptureOverlay(height);
+  overlay.setSize(560, height);
+  overlay.webContents.send("capture-overlay:state", state);
+  overlay.showInactive();
+});
+ipcMain.handle(
+  "capture-overlay:update",
+  (_event, state: CaptureOverlayState) => {
+    captureOverlayState = state;
+    const overlay = createCaptureOverlayWindow();
+    const height =
+      state.phase === "result" || state.phase === "error" ? 232 : 132;
+    positionCaptureOverlay(height);
+    overlay.setSize(560, height);
+    overlay.webContents.send("capture-overlay:state", state);
+    if (!overlay.isVisible()) {
+      overlay.showInactive();
+    }
+  },
+);
+ipcMain.handle("capture-overlay:hide", () => {
+  captureOverlayState = null;
+  captureOverlayWindow?.hide();
+});
+ipcMain.handle("capture-overlay:cancel", () => {
+  mainWindow?.webContents.send("capture-overlay:cancel");
+});
+ipcMain.handle("capture-overlay:mark", () => {
+  mainWindow?.webContents.send("capture-overlay:mark");
+});
 
 app.whenReady().then(() => {
   currentSettings = readSettings();
