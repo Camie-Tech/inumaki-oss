@@ -48,6 +48,16 @@ interface DeviceOption {
   label: string;
 }
 
+type CaptureOverlayPhase = "recording" | "processing" | "result" | "error";
+
+interface CaptureOverlayState {
+  phase: CaptureOverlayPhase;
+  modeLabel: string;
+  level?: number;
+  text?: string;
+  error?: string;
+}
+
 const viewMeta: Record<View, { title: string; eyebrow: string }> = {
   dictation: { title: "Dictation", eyebrow: "Capture" },
   settings: { title: "Settings", eyebrow: "Preferences" },
@@ -55,6 +65,14 @@ const viewMeta: Record<View, { title: string; eyebrow: string }> = {
 };
 
 export function App() {
+  if (window.location.hash === "#capture-overlay") {
+    return <CaptureOverlayApp />;
+  }
+
+  return <MainApp />;
+}
+
+function MainApp() {
   const [apiBaseUrl, setApiBaseUrl] = useState("http://127.0.0.1:4141");
   const [settings, setSettings] = useState<UserSettings>(defaultSettings);
   const [draftSettings, setDraftSettings] =
@@ -83,6 +101,9 @@ export function App() {
   const chunksRef = useRef<Blob[]>([]);
   const startedAtRef = useRef<number>(0);
   const captureModeRef = useRef<OutputMode>(defaultSettings.defaultMode);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const waveFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
     void Promise.all([
@@ -122,6 +143,22 @@ export function App() {
       }
     });
   }, [activeMode, status]);
+
+  useEffect(() => {
+    return window.inumaki.onCaptureOverlayCancel(() => {
+      if (status === "recording") {
+        cancelRecording();
+      }
+    });
+  }, [status]);
+
+  useEffect(() => {
+    return window.inumaki.onCaptureOverlayMark(() => {
+      if (status === "recording") {
+        void stopRecording();
+      }
+    });
+  }, [status]);
 
   useEffect(() => {
     if (view !== "admin") {
@@ -166,6 +203,12 @@ export function App() {
           ? { deviceId: { exact: settings.microphoneId } }
           : true,
       });
+      await window.inumaki.showCaptureOverlay({
+        phase: "recording",
+        modeLabel: outputModeLabels[mode],
+        level: 0,
+      });
+      startWaveMonitor(stream);
       const recorder = new MediaRecorder(stream);
       recorderRef.current = recorder;
       recorder.ondataavailable = (event) => {
@@ -175,12 +218,17 @@ export function App() {
       };
       recorder.start();
     } catch (recordingError) {
-      setStatus("error");
-      setError(
+      const message =
         recordingError instanceof Error
           ? recordingError.message
-          : "Microphone access failed.",
-      );
+          : "Microphone access failed.";
+      setStatus("error");
+      setError(message);
+      await window.inumaki.updateCaptureOverlay({
+        phase: "error",
+        modeLabel: outputModeLabels[mode],
+        error: message,
+      });
     }
   }
 
@@ -189,6 +237,13 @@ export function App() {
     if (!recorder || recorder.state === "inactive") {
       return;
     }
+
+    stopWaveMonitor();
+    await window.inumaki.updateCaptureOverlay({
+      phase: "processing",
+      modeLabel: outputModeLabels[captureModeRef.current],
+      level: 0,
+    });
 
     const audio = await new Promise<Blob>((resolve) => {
       recorder.onstop = () => {
@@ -216,35 +271,120 @@ export function App() {
 
       if (settings.previewBeforePaste) {
         setIsPreviewOpen(true);
+        await showOverlayResult(result.finalText);
       } else {
-        await finishText(result.finalText);
+        const didPaste = await finishText(result.finalText);
+        if (didPaste) {
+          await window.inumaki.hideCaptureOverlay();
+        } else {
+          await showOverlayResult(result.finalText);
+        }
       }
 
       setStatus("success");
     } catch (dictationError) {
-      setStatus("error");
-      setError(
+      const message =
         dictationError instanceof Error
           ? dictationError.message
-          : "Dictation failed.",
-      );
+          : "Dictation failed.";
+      setStatus("error");
+      setError(message);
+      await window.inumaki.updateCaptureOverlay({
+        phase: "error",
+        modeLabel: outputModeLabels[captureModeRef.current],
+        error: message,
+      });
     }
+  }
+
+  function cancelRecording() {
+    const recorder = recorderRef.current;
+    chunksRef.current = [];
+    stopWaveMonitor();
+
+    if (recorder && recorder.state !== "inactive") {
+      recorder.ondataavailable = null;
+      recorder.onstop = () => {
+        recorder.stream.getTracks().forEach((track) => track.stop());
+      };
+      recorder.stop();
+    } else {
+      recorder?.stream.getTracks().forEach((track) => track.stop());
+    }
+
+    recorderRef.current = null;
+    setStatus("idle");
+    setError("");
+    void window.inumaki.hideCaptureOverlay();
+  }
+
+  function startWaveMonitor(stream: MediaStream) {
+    stopWaveMonitor();
+    const context = new AudioContext();
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 128;
+    context.createMediaStreamSource(stream).connect(analyser);
+    audioContextRef.current = context;
+    analyserRef.current = analyser;
+
+    const samples = new Uint8Array(analyser.fftSize);
+    const readLevel = () => {
+      if (!analyserRef.current) {
+        return;
+      }
+
+      analyserRef.current.getByteTimeDomainData(samples);
+      const energy =
+        samples.reduce((total, sample) => {
+          const centered = (sample - 128) / 128;
+          return total + centered * centered;
+        }, 0) / samples.length;
+      const level = Math.min(1, Math.sqrt(energy) * 4);
+      void window.inumaki.updateCaptureOverlay({
+        phase: "recording",
+        modeLabel: outputModeLabels[captureModeRef.current],
+        level,
+      });
+      waveFrameRef.current = window.requestAnimationFrame(readLevel);
+    };
+
+    readLevel();
+  }
+
+  function stopWaveMonitor() {
+    if (waveFrameRef.current !== null) {
+      window.cancelAnimationFrame(waveFrameRef.current);
+      waveFrameRef.current = null;
+    }
+
+    analyserRef.current = null;
+    void audioContextRef.current?.close();
+    audioContextRef.current = null;
   }
 
   async function copyText(text: string) {
     await window.inumaki.writeClipboard(text);
   }
 
-  async function pasteText(text: string) {
+  async function pasteText(text: string): Promise<boolean> {
     await window.inumaki.writeClipboard(text);
-    await window.inumaki.pasteIntoActiveApp();
+    return await window.inumaki.pasteIntoActiveApp();
   }
 
-  async function finishText(text: string) {
+  async function finishText(text: string): Promise<boolean> {
     await copyText(text);
     if (settings.autoPaste) {
-      await window.inumaki.pasteIntoActiveApp();
+      return await window.inumaki.pasteIntoActiveApp();
     }
+    return false;
+  }
+
+  async function showOverlayResult(text: string) {
+    await window.inumaki.updateCaptureOverlay({
+      phase: "result",
+      modeLabel: outputModeLabels[captureModeRef.current],
+      text,
+    });
   }
 
   async function saveSettings() {
@@ -866,6 +1006,144 @@ export function App() {
           </AlertDialog.Content>
         </AlertDialog.Portal>
       </AlertDialog.Root>
+    </div>
+  );
+}
+
+function CaptureOverlayApp() {
+  const [state, setState] = useState<CaptureOverlayState>({
+    phase: "recording",
+    modeLabel: "Clean Text",
+    level: 0,
+  });
+
+  useEffect(() => window.inumaki.onCaptureOverlayState(setState), []);
+
+  const isRecording = state.phase === "recording";
+  const isProcessing = state.phase === "processing";
+  const isResult = state.phase === "result";
+  const isError = state.phase === "error";
+  const title = isRecording
+    ? "Listening"
+    : isProcessing
+      ? "Processing"
+      : isError
+        ? "Needs attention"
+        : "Output ready";
+
+  return (
+    <div className="min-h-dvh bg-transparent p-2 text-zinc-950">
+      <section className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg">
+        <div className="flex items-center gap-3 p-3">
+          <button
+            className="inline-flex h-10 min-w-20 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:text-zinc-400"
+            disabled={isProcessing}
+            aria-label="Cancel dictation"
+            onClick={() => void window.inumaki.requestCaptureOverlayCancel()}
+          >
+            <X className="size-4" />
+            Cancel
+          </button>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-center gap-3">
+              <WaveIndicator
+                active={isRecording}
+                processing={isProcessing}
+                level={state.level ?? 0}
+              />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{title}</p>
+                <p className="truncate text-xs text-zinc-500">
+                  {state.modeLabel}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {isResult ? (
+            <button
+              className="inline-flex h-10 min-w-20 items-center justify-center gap-2 rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800"
+              aria-label="Copy transcribed text"
+              onClick={() =>
+                state.text && void window.inumaki.writeClipboard(state.text)
+              }
+            >
+              <Copy className="size-4" />
+              Copy
+            </button>
+          ) : (
+            <button
+              className="inline-flex h-10 min-w-20 items-center justify-center gap-2 rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
+              disabled={!isRecording}
+              aria-label="Mark end of dictation"
+              onClick={() => void window.inumaki.requestCaptureOverlayMark()}
+            >
+              <Check className="size-4" />
+              Mark
+            </button>
+          )}
+        </div>
+
+        {(isResult || isError) && (
+          <div className="border-t border-zinc-200 bg-zinc-50 p-3">
+            {isResult ? (
+              <textarea
+                className="h-24 w-full resize-none rounded-md border border-zinc-300 bg-white p-3 text-sm leading-5 text-zinc-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                readOnly
+                value={state.text ?? ""}
+                aria-label="Transcribed text"
+              />
+            ) : (
+              <div className="flex h-24 gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                <p className="overflow-auto text-pretty">
+                  {state.error ?? "Dictation failed."}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function WaveIndicator({
+  active,
+  level,
+  processing,
+}: {
+  active: boolean;
+  level: number;
+  processing: boolean;
+}) {
+  const bars = [0.45, 0.75, 1, 0.75, 0.45];
+
+  return (
+    <div
+      className="flex h-11 w-28 items-center justify-center gap-1 rounded-md border border-zinc-200 bg-zinc-50"
+      aria-hidden="true"
+    >
+      {processing ? (
+        <RefreshCw className="size-5 animate-spin text-blue-700 motion-reduce:animate-none" />
+      ) : (
+        bars.map((weight, index) => {
+          const scale = active
+            ? 0.25 + Math.max(level, 0.08) * weight * 1.6
+            : 0.25;
+          return (
+            <span
+              key={index}
+              className={cn(
+                "block h-7 w-1.5 origin-center rounded-full bg-blue-700 transition-transform duration-75 motion-reduce:transition-none",
+                !active && "bg-zinc-400",
+              )}
+              style={{ transform: `scaleY(${Math.min(scale, 1)})` }}
+            />
+          );
+        })
+      )}
     </div>
   );
 }

@@ -11,7 +11,7 @@ It was auto-generated from a first-pass repository scan and should be refined as
 ## Architecture
 
 - pnpm monorepo with `apps/desktop`, `apps/api`, and `packages/shared`.
-- Desktop app: Electron + React + TypeScript + electron-vite. Main process owns tray, default and per-mode global shortcut registration, launch-at-login registration for packaged builds, clipboard, and Windows paste IPC; renderer owns MediaRecorder capture, output mode selection, settings, preview, and admin UI.
+- Desktop app: Electron + React + TypeScript + electron-vite. Main process owns tray, default and per-mode global shortcut registration, launch-at-login registration for packaged builds, clipboard, Windows paste IPC, and the always-on-top capture overlay window; renderer owns MediaRecorder capture, output mode selection, settings, preview, and admin UI.
 - API app: Express + TypeScript. Routes cover `/dictations`, `/settings`, `/admin/users`, `/admin/usage`, and `/health`.
 - Shared package exports output modes, labels, default settings, and API contract types.
 - SQLite is the MVP persistence layer via `better-sqlite3` and Drizzle schema definitions. API creates tables on startup.
@@ -38,6 +38,7 @@ It was auto-generated from a first-pass repository scan and should be refined as
 - TypeScript is strict across the workspace.
 - Use shared output/settings contracts from `packages/shared` rather than duplicating mode strings. `UserSettings.captureHotkeys` maps each output mode to its direct-capture accelerator.
 - Desktop UI uses Tailwind defaults, `cn` from `clsx` + `tailwind-merge`, lucide icons, Radix Dialog for previews, and Radix AlertDialog for destructive confirmations.
+- Capture overlay UI is a separate renderer route at `#/capture-overlay`; it stays minimal, frameless, bottom-positioned, and uses IPC to send Cancel/Mark actions back to the main app.
 - Mock transcription is forbidden; development and production must use local whisper.cpp inference.
 - The API should not retain raw audio; uploaded audio is temporary and deleted after dictation processing.
 - No authentication is implemented for the MVP; admin controls are intentionally lightweight.
@@ -62,7 +63,7 @@ It was auto-generated from a first-pass repository scan and should be refined as
 ## Known Risks
 
 - Electron `globalShortcut` is currently toggle-style; true press-and-hold keyup capture will need a Windows global keyboard hook library or native module.
-- Windows auto-paste is implemented with clipboard plus PowerShell SendKeys and is only active on `win32`.
+- Windows auto-paste is implemented with clipboard plus PowerShell SendKeys and is only active on `win32`; the main process captures the foreground HWND at shortcut time and restores it before paste.
 - Packaged desktop builds default to launching at login with `--background`, so startup creates the tray app without showing the main window.
 - Whisper integration expects a whisper.cpp-compatible CLI and ggml model; run `pnpm setup:whisper` because no model binaries are committed.
 - `pnpm setup:whisper` requires git, CMake, and a C++ build toolchain for source builds; default Windows setup uses the official prebuilt whisper.cpp release asset instead of Visual Studio.
