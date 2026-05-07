@@ -556,6 +556,17 @@ export function App() {
                       }
                     />
                   </Field>
+
+                  <Toggle
+                    checked={draftSettings.launchAtLogin}
+                    label="Launch at login"
+                    onChange={(checked) =>
+                      setDraftSettings({
+                        ...draftSettings,
+                        launchAtLogin: checked,
+                      })
+                    }
+                  />
                 </div>
               </Panel>
 

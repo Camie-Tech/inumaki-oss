@@ -35,6 +35,7 @@ export interface UserSettings {
   autoPaste: boolean;
   defaultMode: OutputMode;
   hotkey: string;
+  launchAtLogin: boolean;
   microphoneId: string | null;
   previewBeforePaste: boolean;
   tonePreference: string;
@@ -44,6 +45,7 @@ export const defaultSettings: UserSettings = {
   autoPaste: true,
   defaultMode: "clean-text",
   hotkey: "CommandOrControl+Shift+Space",
+  launchAtLogin: true,
   microphoneId: null,
   previewBeforePaste: false,
   tonePreference: "clear and concise",

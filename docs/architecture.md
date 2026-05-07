@@ -8,6 +8,7 @@ The Electron app owns:
 
 - tray lifecycle and window visibility
 - global shortcut registration
+- packaged app launch-at-login registration
 - microphone capture through browser `MediaRecorder`
 - output mode, settings, and preview UI
 - clipboard writes and Windows auto-paste

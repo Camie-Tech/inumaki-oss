@@ -24,6 +24,8 @@ let isQuitting = false;
 const apiPort = process.env.INUMAKI_API_PORT ?? "4141";
 const apiBaseUrl =
   process.env.INUMAKI_API_BASE_URL ?? `http://127.0.0.1:${apiPort}`;
+const isBackgroundLaunch =
+  process.argv.includes("--background") || process.argv.includes("--hidden");
 const settingsPath = () => path.join(app.getPath("userData"), "settings.json");
 
 function createWindow(): void {
@@ -56,7 +58,9 @@ function createWindow(): void {
   }
 
   mainWindow.once("ready-to-show", () => {
-    mainWindow?.show();
+    if (!isBackgroundLaunch) {
+      mainWindow?.show();
+    }
   });
 }
 
@@ -113,7 +117,20 @@ function writeSettings(settings: UserSettings): UserSettings {
   fs.writeFileSync(settingsPath(), JSON.stringify(settings, null, 2));
   currentSettings = settings;
   registerHotkey(settings);
+  syncLoginItemSettings(settings);
   return settings;
+}
+
+function syncLoginItemSettings(settings: UserSettings): void {
+  if (!app.isPackaged) {
+    return;
+  }
+
+  app.setLoginItemSettings({
+    args: settings.launchAtLogin ? ["--background"] : [],
+    openAtLogin: settings.launchAtLogin,
+    openAsHidden: true,
+  });
 }
 
 async function pasteIntoActiveWindow(): Promise<void> {
@@ -146,9 +163,11 @@ ipcMain.handle("paste:active-window", () => pasteIntoActiveWindow());
 
 app.whenReady().then(() => {
   currentSettings = readSettings();
+  Menu.setApplicationMenu(null);
   createWindow();
   createTray();
   registerHotkey(currentSettings);
+  syncLoginItemSettings(currentSettings);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {

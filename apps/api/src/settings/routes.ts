@@ -14,6 +14,7 @@ const settingsSchema = z.object({
     "coding-prompt",
   ]),
   hotkey: z.string().min(1),
+  launchAtLogin: z.boolean(),
   microphoneId: z.string().nullable(),
   previewBeforePaste: z.boolean(),
   tonePreference: z.string().min(1),
@@ -54,6 +55,11 @@ export function readSettings(): UserSettings {
       defaultSettings.defaultMode,
     ) as UserSettings["defaultMode"],
     hotkey: readString(values, "hotkey", defaultSettings.hotkey),
+    launchAtLogin: readBoolean(
+      values,
+      "launchAtLogin",
+      defaultSettings.launchAtLogin,
+    ),
     microphoneId: readNullableString(
       values,
       "microphoneId",
