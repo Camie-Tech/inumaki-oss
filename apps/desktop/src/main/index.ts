@@ -30,6 +30,11 @@ interface CaptureOverlayState {
   error?: string;
 }
 
+interface CaptureOverlayBounds {
+  width: number;
+  height: number;
+}
+
 let mainWindow: BrowserWindow | null = null;
 let captureOverlayWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -87,11 +92,10 @@ function createCaptureOverlayWindow(): BrowserWindow {
   }
 
   captureOverlayWindow = new BrowserWindow({
-    width: 560,
-    height: 132,
-    minWidth: 560,
-    minHeight: 132,
-    maxWidth: 560,
+    width: 320,
+    height: 88,
+    minWidth: 280,
+    minHeight: 72,
     frame: false,
     resizable: false,
     movable: false,
@@ -99,7 +103,8 @@ function createCaptureOverlayWindow(): BrowserWindow {
     skipTaskbar: true,
     show: false,
     title: "Inumaki Capture",
-    backgroundColor: "#ffffff",
+    transparent: true,
+    backgroundColor: "#00000000",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       sandbox: false,
@@ -134,16 +139,25 @@ function createCaptureOverlayWindow(): BrowserWindow {
   return captureOverlayWindow;
 }
 
-function positionCaptureOverlay(height = 132): void {
+function positionCaptureOverlay({ width, height }: CaptureOverlayBounds): void {
   if (!captureOverlayWindow || captureOverlayWindow.isDestroyed()) {
     return;
   }
 
   const { workArea } = screen.getPrimaryDisplay();
-  const width = captureOverlayWindow.getSize()[0] ?? 560;
   const x = Math.round(workArea.x + (workArea.width - width) / 2);
   const y = Math.round(workArea.y + workArea.height - height - 28);
   captureOverlayWindow.setBounds({ x, y, width, height });
+}
+
+function getCaptureOverlayBounds(
+  state: CaptureOverlayState,
+): CaptureOverlayBounds {
+  if (state.phase === "result" || state.phase === "error") {
+    return { width: 440, height: 240 };
+  }
+
+  return { width: 320, height: 88 };
 }
 
 function createTray(): void {
@@ -344,10 +358,9 @@ ipcMain.handle("paste:active-window", () => pasteIntoActiveWindow());
 ipcMain.handle("capture-overlay:show", (_event, state: CaptureOverlayState) => {
   captureOverlayState = state;
   const overlay = createCaptureOverlayWindow();
-  const height =
-    state.phase === "result" || state.phase === "error" ? 232 : 132;
-  positionCaptureOverlay(height);
-  overlay.setSize(560, height);
+  const bounds = getCaptureOverlayBounds(state);
+  overlay.setSize(bounds.width, bounds.height);
+  positionCaptureOverlay(bounds);
   overlay.webContents.send("capture-overlay:state", state);
   overlay.showInactive();
 });
@@ -356,10 +369,9 @@ ipcMain.handle(
   (_event, state: CaptureOverlayState) => {
     captureOverlayState = state;
     const overlay = createCaptureOverlayWindow();
-    const height =
-      state.phase === "result" || state.phase === "error" ? 232 : 132;
-    positionCaptureOverlay(height);
-    overlay.setSize(560, height);
+    const bounds = getCaptureOverlayBounds(state);
+    overlay.setSize(bounds.width, bounds.height);
+    positionCaptureOverlay(bounds);
     overlay.webContents.send("capture-overlay:state", state);
     if (!overlay.isVisible()) {
       overlay.showInactive();
