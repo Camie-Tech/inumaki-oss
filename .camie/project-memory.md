@@ -64,6 +64,7 @@ It was auto-generated from a first-pass repository scan and should be refined as
 
 - Electron `globalShortcut` is currently toggle-style; true press-and-hold keyup capture will need a Windows global keyboard hook library or native module.
 - Windows auto-paste is implemented with clipboard plus PowerShell SendKeys and is only active on `win32`; the main process captures the foreground HWND at shortcut time and restores it before paste.
+- Current dictation processing is serialized as whole-blob upload, ffmpeg WAV conversion, per-request `whisper-cli` launch/model load, then optional Groq rewrite; `docs/transcription-performance-plan.md` tracks the fix plan.
 - Packaged desktop builds default to launching at login with `--background`, so startup creates the tray app without showing the main window.
 - Whisper integration expects a whisper.cpp-compatible CLI and ggml model; run `pnpm setup:whisper` because no model binaries are committed.
 - `pnpm setup:whisper` requires git, CMake, and a C++ build toolchain for source builds; default Windows setup uses the official prebuilt whisper.cpp release asset instead of Visual Studio.
