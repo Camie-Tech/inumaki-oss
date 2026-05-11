@@ -65,7 +65,9 @@ const viewMeta: Record<View, { title: string; eyebrow: string }> = {
 };
 
 export function App() {
-  if (window.location.hash === "#capture-overlay") {
+  const route = window.location.hash.replace(/^#\/?/, "");
+
+  if (route === "capture-overlay") {
     return <CaptureOverlayApp />;
   }
 
@@ -1018,84 +1020,72 @@ function CaptureOverlayApp() {
   });
 
   useEffect(() => window.inumaki.onCaptureOverlayState(setState), []);
+  useEffect(() => {
+    const previousBodyBackground = document.body.style.background;
+    const previousDocumentBackground =
+      document.documentElement.style.background;
+    document.body.style.background = "transparent";
+    document.documentElement.style.background = "transparent";
+
+    return () => {
+      document.body.style.background = previousBodyBackground;
+      document.documentElement.style.background = previousDocumentBackground;
+    };
+  }, []);
 
   const isRecording = state.phase === "recording";
   const isProcessing = state.phase === "processing";
   const isResult = state.phase === "result";
   const isError = state.phase === "error";
-  const title = isRecording
-    ? "Listening"
-    : isProcessing
-      ? "Processing"
-      : isError
-        ? "Needs attention"
-        : "Output ready";
+  const level = Math.max(0, Math.min(state.level ?? 0, 1));
 
-  return (
-    <div className="min-h-dvh bg-transparent p-2 text-zinc-950">
-      <section className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg">
-        <div className="flex items-center gap-3 p-3">
-          <button
-            className="inline-flex h-10 min-w-20 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:text-zinc-400"
-            disabled={isProcessing}
-            aria-label="Cancel dictation"
-            onClick={() => void window.inumaki.requestCaptureOverlayCancel()}
-          >
-            <X className="size-4" />
-            Cancel
-          </button>
-
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-center gap-3">
-              <WaveIndicator
-                active={isRecording}
-                processing={isProcessing}
-                level={state.level ?? 0}
-              />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">{title}</p>
-                <p className="truncate text-xs text-zinc-500">
-                  {state.modeLabel}
-                </p>
-              </div>
+  if (isResult || isError) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-transparent p-2 text-white">
+        <section className="w-full overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl shadow-zinc-950/40">
+          <div className="flex h-12 items-center justify-between gap-3 border-b border-zinc-800 px-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">
+                {isError ? "Needs attention" : "Output ready"}
+              </p>
+              <p className="truncate text-xs text-zinc-400">
+                {state.modeLabel}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {isResult && (
+                <button
+                  className="inline-flex h-8 items-center justify-center gap-2 rounded-full bg-white px-3 text-xs font-semibold text-zinc-950 hover:bg-zinc-200"
+                  aria-label="Copy transcribed text"
+                  onClick={() =>
+                    state.text && void window.inumaki.writeClipboard(state.text)
+                  }
+                >
+                  <Copy className="size-3.5" />
+                  Copy
+                </button>
+              )}
+              <button
+                className="flex size-8 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
+                aria-label="Close dictation overlay"
+                title="Close"
+                onClick={() => void window.inumaki.hideCaptureOverlay()}
+              >
+                <X className="size-4" />
+              </button>
             </div>
           </div>
 
-          {isResult ? (
-            <button
-              className="inline-flex h-10 min-w-20 items-center justify-center gap-2 rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800"
-              aria-label="Copy transcribed text"
-              onClick={() =>
-                state.text && void window.inumaki.writeClipboard(state.text)
-              }
-            >
-              <Copy className="size-4" />
-              Copy
-            </button>
-          ) : (
-            <button
-              className="inline-flex h-10 min-w-20 items-center justify-center gap-2 rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
-              disabled={!isRecording}
-              aria-label="Mark end of dictation"
-              onClick={() => void window.inumaki.requestCaptureOverlayMark()}
-            >
-              <Check className="size-4" />
-              Mark
-            </button>
-          )}
-        </div>
-
-        {(isResult || isError) && (
-          <div className="border-t border-zinc-200 bg-zinc-50 p-3">
+          <div className="p-3">
             {isResult ? (
               <textarea
-                className="h-24 w-full resize-none rounded-md border border-zinc-300 bg-white p-3 text-sm leading-5 text-zinc-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                className="h-32 w-full resize-none rounded-lg border border-zinc-800 bg-zinc-900 p-3 text-sm leading-5 text-zinc-100 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-950"
                 readOnly
                 value={state.text ?? ""}
                 aria-label="Transcribed text"
               />
             ) : (
-              <div className="flex h-24 gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <div className="flex h-32 gap-2 rounded-lg border border-red-900/70 bg-red-950/40 p-3 text-sm text-red-100">
                 <AlertCircle className="mt-0.5 size-4 shrink-0" />
                 <p className="overflow-auto text-pretty">
                   {state.error ?? "Dictation failed."}
@@ -1103,13 +1093,58 @@ function CaptureOverlayApp() {
               </div>
             )}
           </div>
-        )}
+        </section>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-dvh items-center justify-center bg-transparent text-white">
+      <section
+        className="grid h-[76px] w-[304px] grid-cols-[36px_minmax(0,1fr)_36px] items-center gap-3 rounded-[26px] border border-zinc-700/90 bg-zinc-950/95 px-3 py-2 shadow-2xl shadow-zinc-950/50 ring-1 ring-white/10"
+        aria-label={isProcessing ? "Dictation processing" : "Dictation active"}
+      >
+        <button
+          className="flex size-9 shrink-0 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-45"
+          disabled={isProcessing}
+          aria-label="Cancel dictation"
+          title="Cancel dictation"
+          onClick={() => void window.inumaki.requestCaptureOverlayCancel()}
+        >
+          <X className="size-4" />
+        </button>
+
+        <div className="min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400">
+              {isProcessing ? "Processing" : "Recording"}
+            </p>
+            <p className="truncate text-xs font-medium text-zinc-200">
+              {state.modeLabel}
+            </p>
+          </div>
+          <VoiceWave
+            active={isRecording}
+            level={level}
+            processing={isProcessing}
+          />
+        </div>
+
+        <button
+          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white text-zinc-950 hover:bg-zinc-200 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"
+          disabled={!isRecording}
+          aria-label="Mark end of dictation"
+          title="Mark end of dictation"
+          onClick={() => void window.inumaki.requestCaptureOverlayMark()}
+        >
+          <Check className="size-4" />
+        </button>
       </section>
     </div>
   );
 }
 
-function WaveIndicator({
+function VoiceWave({
   active,
   level,
   processing,
@@ -1118,32 +1153,43 @@ function WaveIndicator({
   level: number;
   processing: boolean;
 }) {
-  const bars = [0.45, 0.75, 1, 0.75, 0.45];
+  const bars = [
+    0.22, 0.34, 0.48, 0.62, 0.78, 0.92, 0.7, 0.5, 0.82, 1, 0.82, 0.5,
+    0.7, 0.92, 0.78, 0.62, 0.48, 0.34, 0.22,
+  ];
 
   return (
     <div
-      className="flex h-11 w-28 items-center justify-center gap-1 rounded-md border border-zinc-200 bg-zinc-50"
+      className="relative mt-1 flex h-9 w-full items-center justify-center gap-1 overflow-hidden"
       aria-hidden="true"
     >
-      {processing ? (
-        <RefreshCw className="size-5 animate-spin text-blue-700 motion-reduce:animate-none" />
-      ) : (
-        bars.map((weight, index) => {
-          const scale = active
-            ? 0.25 + Math.max(level, 0.08) * weight * 1.6
-            : 0.25;
-          return (
-            <span
-              key={index}
-              className={cn(
-                "block h-7 w-1.5 origin-center rounded-full bg-blue-700 transition-transform duration-75 motion-reduce:transition-none",
-                !active && "bg-zinc-400",
-              )}
-              style={{ transform: `scaleY(${Math.min(scale, 1)})` }}
-            />
-          );
-        })
-      )}
+      <span className="absolute inset-x-0 top-1/2 h-px bg-gradient-to-r from-transparent via-zinc-700 to-transparent" />
+      {bars.map((weight, index) => {
+        const movement = active ? Math.max(level, 0.08) : 0.05;
+        const processingLift = processing ? 0.32 + ((index % 5) * 0.08) : 0;
+        const height = 8 + (movement + processingLift) * weight * 26;
+        const opacity = processing
+          ? 0.4 + (index % 4) * 0.12
+          : active
+            ? 0.42 + movement * weight * 0.8
+            : 0.35;
+
+        return (
+          <span
+            key={index}
+            className={cn(
+              "relative block w-1 rounded-full bg-zinc-100 transition-[height,opacity] duration-75 motion-reduce:transition-none",
+              processing && "animate-pulse bg-sky-200 motion-reduce:animate-none",
+              active && level > 0.28 && index % 4 === 0 && "bg-emerald-200",
+            )}
+            style={{
+              opacity: Math.min(opacity, 1),
+              height: `${Math.min(height, 34)}px`,
+              animationDelay: `${index * 48}ms`,
+            }}
+          />
+        );
+      })}
     </div>
   );
 }

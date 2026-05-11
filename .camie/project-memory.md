@@ -38,7 +38,7 @@ It was auto-generated from a first-pass repository scan and should be refined as
 - TypeScript is strict across the workspace.
 - Use shared output/settings contracts from `packages/shared` rather than duplicating mode strings. `UserSettings.captureHotkeys` maps each output mode to its direct-capture accelerator.
 - Desktop UI uses Tailwind defaults, `cn` from `clsx` + `tailwind-merge`, lucide icons, Radix Dialog for previews, and Radix AlertDialog for destructive confirmations.
-- Capture overlay UI is a separate renderer route at `#/capture-overlay`; it stays minimal, frameless, bottom-positioned, and uses IPC to send Cancel/Mark actions back to the main app.
+- Capture overlay UI is a separate renderer route that must accept both `#/capture-overlay` (dev URL) and `#capture-overlay` (packaged loadFile hash); during capture it should stay as a compact frameless bottom pill with Cancel, signal dots/wave, and Mark controls, then expand only for copyable result/error fallback states.
 - Mock transcription is forbidden; development and production must use local whisper.cpp inference.
 - The API should not retain raw audio; uploaded audio is temporary and deleted after dictation processing.
 - No authentication is implemented for the MVP; admin controls are intentionally lightweight.
