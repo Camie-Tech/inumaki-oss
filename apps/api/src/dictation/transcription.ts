@@ -2,8 +2,10 @@ import { execFile } from "node:child_process";
 import fs from "node:fs";
 import fsPromises from "node:fs/promises";
 import path from "node:path";
+import { performance } from "node:perf_hooks";
 import { promisify } from "node:util";
 
+import type { DictationTimings } from "@inumaki/shared";
 import ffmpegPath from "ffmpeg-static";
 
 import { config } from "../config";
@@ -16,32 +18,48 @@ interface WhisperAssets {
   modelPath: string;
 }
 
-export async function transcribeAudio(audioPath: string): Promise<string> {
+interface TranscriptionResult {
+  text: string;
+  timings: Pick<
+    DictationTimings,
+    "serverAudioConversionMs" | "serverTranscriptionMs" | "serverWhisperMs"
+  >;
+}
+
+interface ExecFileError extends Error {
+  killed?: boolean;
+  signal?: NodeJS.Signals;
+  stderr?: string;
+}
+
+let cachedWhisperAssets: WhisperAssets | null = null;
+
+export async function transcribeAudio(
+  audioPath: string,
+): Promise<TranscriptionResult> {
+  const startedAt = performance.now();
   const assets = resolveWhisperAssets();
   const wavPath = `${audioPath}.wav`;
   const outputBase = audioPath;
   const outputTextPath = `${outputBase}.txt`;
 
   try {
-    await convertToWhisperWav(audioPath, wavPath);
-    await execFileAsync(
-      assets.binaryPath,
-      [
-        "-m",
-        assets.modelPath,
-        "-f",
-        wavPath,
-        "-otxt",
-        "-of",
-        outputBase,
-        "-t",
-        String(config.whisperThreads),
-      ],
-      { maxBuffer: maxProcessBuffer },
+    const [, serverAudioConversionMs] = await measureMs(() =>
+      convertToWhisperWav(audioPath, wavPath),
+    );
+    const [, serverWhisperMs] = await measureMs(() =>
+      runWhisperCli(assets, wavPath, outputBase),
     );
 
     const text = await fsPromises.readFile(outputTextPath, "utf8");
-    return text.trim();
+    return {
+      text: text.trim(),
+      timings: {
+        serverAudioConversionMs: roundMs(serverAudioConversionMs),
+        serverTranscriptionMs: roundMs(performance.now() - startedAt),
+        serverWhisperMs: roundMs(serverWhisperMs),
+      },
+    };
   } finally {
     await fsPromises.unlink(wavPath).catch(() => undefined);
     await fsPromises.unlink(outputTextPath).catch(() => undefined);
@@ -49,6 +67,10 @@ export async function transcribeAudio(audioPath: string): Promise<string> {
 }
 
 function resolveWhisperAssets(): WhisperAssets {
+  if (cachedWhisperAssets) {
+    return cachedWhisperAssets;
+  }
+
   const binaryPath = resolveWhisperBinary();
   const modelPath = resolveWhisperModel();
 
@@ -64,7 +86,8 @@ function resolveWhisperAssets(): WhisperAssets {
     );
   }
 
-  return { binaryPath, modelPath };
+  cachedWhisperAssets = { binaryPath, modelPath };
+  return cachedWhisperAssets;
 }
 
 function resolveWhisperBinary(): string | null {
@@ -109,7 +132,7 @@ async function convertToWhisperWav(
     );
   }
 
-  await execFileAsync(
+  await execFileWithTimeout(
     ffmpegPath,
     [
       "-y",
@@ -123,8 +146,67 @@ async function convertToWhisperWav(
       "pcm_s16le",
       outputPath,
     ],
-    { maxBuffer: maxProcessBuffer },
+    "Audio conversion",
   );
+}
+
+async function runWhisperCli(
+  assets: WhisperAssets,
+  wavPath: string,
+  outputBase: string,
+): Promise<void> {
+  await execFileWithTimeout(
+    assets.binaryPath,
+    [
+      "-m",
+      assets.modelPath,
+      "-f",
+      wavPath,
+      "-otxt",
+      "-of",
+      outputBase,
+      "-t",
+      String(config.whisperThreads),
+    ],
+    "Whisper transcription",
+  );
+}
+
+async function execFileWithTimeout(
+  command: string,
+  args: string[],
+  label: string,
+): Promise<void> {
+  try {
+    await execFileAsync(command, args, {
+      maxBuffer: maxProcessBuffer,
+      timeout: config.whisperTimeoutMs,
+    });
+  } catch (error) {
+    if (isExecFileError(error) && error.killed) {
+      throw new Error(`${label} timed out after ${config.whisperTimeoutMs}ms.`);
+    }
+
+    if (isExecFileError(error) && error.stderr?.trim()) {
+      throw new Error(`${label} failed: ${error.stderr.trim()}`);
+    }
+
+    throw error;
+  }
+}
+
+async function measureMs<T>(fn: () => Promise<T>): Promise<[T, number]> {
+  const startedAt = performance.now();
+  const result = await fn();
+  return [result, performance.now() - startedAt];
+}
+
+function roundMs(value: number): number {
+  return Math.round(value);
+}
+
+function isExecFileError(error: unknown): error is ExecFileError {
+  return error instanceof Error;
 }
 
 function whisperBinaryCandidates(): string[] {
