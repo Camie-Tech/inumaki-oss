@@ -27,6 +27,7 @@ export async function createDictation(input: {
   apiBaseUrl: string;
   audio: Blob;
   audioSeconds: number;
+  clientAudioBlobMs?: number;
   mode: OutputMode;
 }): Promise<DictationResponse> {
   const formData = new FormData();
@@ -34,16 +35,26 @@ export async function createDictation(input: {
   formData.append("mode", input.mode);
   formData.append("audioSeconds", String(input.audioSeconds));
 
+  const startedAt = performance.now();
   const response = await fetch(`${input.apiBaseUrl}/dictations`, {
     method: "POST",
     body: formData,
   });
+  const clientUploadMs = Math.round(performance.now() - startedAt);
 
   if (!response.ok) {
     throw new Error(await readError(response));
   }
 
-  return response.json() as Promise<DictationResponse>;
+  const payload = (await response.json()) as DictationResponse;
+  return {
+    ...payload,
+    timings: {
+      ...payload.timings,
+      clientAudioBlobMs: input.clientAudioBlobMs,
+      clientUploadMs,
+    },
+  };
 }
 
 export async function getUsage(apiBaseUrl: string): Promise<UsageSummary> {

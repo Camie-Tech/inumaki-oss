@@ -3,6 +3,7 @@ import type { OutputMode, UserSettings } from "@inumaki/shared";
 interface CaptureOverlayState {
   phase: "recording" | "processing" | "result" | "error";
   modeLabel: string;
+  detail?: string;
   level?: number;
   text?: string;
   error?: string;

@@ -53,6 +53,7 @@ type CaptureOverlayPhase = "recording" | "processing" | "result" | "error";
 interface CaptureOverlayState {
   phase: CaptureOverlayPhase;
   modeLabel: string;
+  detail?: string;
   level?: number;
   text?: string;
   error?: string;
@@ -208,6 +209,7 @@ function MainApp() {
       await window.inumaki.showCaptureOverlay({
         phase: "recording",
         modeLabel: outputModeLabels[mode],
+        detail: "Listening",
         level: 0,
       });
       startWaveMonitor(stream);
@@ -244,9 +246,11 @@ function MainApp() {
     await window.inumaki.updateCaptureOverlay({
       phase: "processing",
       modeLabel: outputModeLabels[captureModeRef.current],
+      detail: "Preparing audio",
       level: 0,
     });
 
+    const audioBlobStartedAt = performance.now();
     const audio = await new Promise<Blob>((resolve) => {
       recorder.onstop = () => {
         recorder.stream.getTracks().forEach((track) => track.stop());
@@ -254,6 +258,9 @@ function MainApp() {
       };
       recorder.stop();
     });
+    const clientAudioBlobMs = Math.round(
+      performance.now() - audioBlobStartedAt,
+    );
 
     const audioSeconds = Math.max(
       0,
@@ -262,12 +269,22 @@ function MainApp() {
     setStatus("processing");
 
     try {
+      await window.inumaki.updateCaptureOverlay({
+        phase: "processing",
+        modeLabel: outputModeLabels[captureModeRef.current],
+        detail: "Transcribing",
+        level: 0,
+      });
       const result = await createDictation({
         apiBaseUrl,
         audio,
         audioSeconds,
+        clientAudioBlobMs,
         mode: captureModeRef.current,
       });
+      if (result.timings) {
+        console.info("Dictation timings", result.timings);
+      }
       setLastResult(result);
       setPreviewText(result.finalText);
 
@@ -275,6 +292,14 @@ function MainApp() {
         setIsPreviewOpen(true);
         await showOverlayResult(result.finalText);
       } else {
+        if (settings.autoPaste) {
+          await window.inumaki.updateCaptureOverlay({
+            phase: "processing",
+            modeLabel: outputModeLabels[captureModeRef.current],
+            detail: "Pasting",
+            level: 0,
+          });
+        }
         const didPaste = await finishText(result.finalText);
         if (didPaste) {
           await window.inumaki.hideCaptureOverlay();
@@ -345,6 +370,7 @@ function MainApp() {
       void window.inumaki.updateCaptureOverlay({
         phase: "recording",
         modeLabel: outputModeLabels[captureModeRef.current],
+        detail: "Listening",
         level,
       });
       waveFrameRef.current = window.requestAnimationFrame(readLevel);
@@ -1117,7 +1143,7 @@ function CaptureOverlayApp() {
         <div className="min-w-0">
           <div className="flex items-center justify-between gap-2">
             <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400">
-              {isProcessing ? "Processing" : "Recording"}
+              {state.detail ?? (isProcessing ? "Processing" : "Recording")}
             </p>
             <p className="truncate text-xs font-medium text-zinc-200">
               {state.modeLabel}
@@ -1154,8 +1180,8 @@ function VoiceWave({
   processing: boolean;
 }) {
   const bars = [
-    0.22, 0.34, 0.48, 0.62, 0.78, 0.92, 0.7, 0.5, 0.82, 1, 0.82, 0.5,
-    0.7, 0.92, 0.78, 0.62, 0.48, 0.34, 0.22,
+    0.22, 0.34, 0.48, 0.62, 0.78, 0.92, 0.7, 0.5, 0.82, 1, 0.82, 0.5, 0.7, 0.92,
+    0.78, 0.62, 0.48, 0.34, 0.22,
   ];
 
   return (
@@ -1166,7 +1192,7 @@ function VoiceWave({
       <span className="absolute inset-x-0 top-1/2 h-px bg-gradient-to-r from-transparent via-zinc-700 to-transparent" />
       {bars.map((weight, index) => {
         const movement = active ? Math.max(level, 0.08) : 0.05;
-        const processingLift = processing ? 0.32 + ((index % 5) * 0.08) : 0;
+        const processingLift = processing ? 0.32 + (index % 5) * 0.08 : 0;
         const height = 8 + (movement + processingLift) * weight * 26;
         const opacity = processing
           ? 0.4 + (index % 4) * 0.12
@@ -1179,7 +1205,8 @@ function VoiceWave({
             key={index}
             className={cn(
               "relative block w-1 rounded-full bg-zinc-100 transition-[height,opacity] duration-75 motion-reduce:transition-none",
-              processing && "animate-pulse bg-sky-200 motion-reduce:animate-none",
+              processing &&
+                "animate-pulse bg-sky-200 motion-reduce:animate-none",
               active && level > 0.28 && index % 4 === 0 && "bg-emerald-200",
             )}
             style={{

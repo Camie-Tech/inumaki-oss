@@ -61,8 +61,23 @@ export const defaultSettings: UserSettings = {
 export interface DictationResponse {
   finalText: string;
   mode: OutputMode;
+  timings?: DictationTimings;
   transcript: string;
   usageId: string;
+}
+
+export interface DictationTimings {
+  clientAudioBlobMs?: number;
+  clientUploadMs?: number;
+  serverAudioConversionMs?: number;
+  serverCleanupMs?: number;
+  serverDbMs?: number;
+  serverPreferenceMs?: number;
+  serverRewriteMs?: number;
+  serverTotalMs?: number;
+  serverTranscriptionMs?: number;
+  serverWhisperMs?: number;
+  rewriteSkippedReason?: string;
 }
 
 export interface UsageSummary {

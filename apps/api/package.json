@@ -7,7 +7,7 @@
     "build": "tsc -p tsconfig.json",
     "dev": "pnpm --filter @inumaki/shared build && tsx watch src/index.ts",
     "start": "node dist/index.js",
-    "test": "node --test --experimental-strip-types src/**/*.test.ts",
+    "test": "node --import tsx --test src/**/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

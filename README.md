@@ -108,6 +108,18 @@ WHISPER_CPP_BINARY=/path/to/whisper-cli
 WHISPER_MODEL_PATH=/path/to/ggml-base.en.bin
 ```
 
+Runtime tuning:
+
+```bash
+WHISPER_CPP_THREADS=        # Empty uses an auto-detected local default
+WHISPER_CPP_TIMEOUT_MS=120000
+GROQ_FAST_MODEL=            # Optional low-latency rewrite model override
+GROQ_TIMEOUT_MS=20000
+SLOW_DICTATION_THRESHOLD_MS=5000
+```
+
+Dictation responses include timing fields, and the API returns a `Server-Timing` header so slow captures can be split into conversion, Whisper, rewrite, DB, and total request time.
+
 Mock transcription is not supported.
 
 ## Common Commands

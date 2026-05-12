@@ -1,5 +1,10 @@
 # Transcription Performance Plan
 
+## Implementation Status
+
+- Implemented: client/API timing fields, `Server-Timing` response header, slow dictation logs, cached Whisper asset resolution, Whisper/Groq timeouts, auto-detected Whisper thread fallback, optional `GROQ_FAST_MODEL`, rewrite skip gates for raw/empty/filler/very-short transcripts, and overlay phase labels for preparing/transcribing/pasting.
+- Remaining: warm Whisper worker/server, PCM or WAV capture path, chunk upload while recording, elapsed-time overlay, and benchmark script/default tuning.
+
 ## Problem
 
 Dictation currently feels slow because the post-recording path is serialized:
