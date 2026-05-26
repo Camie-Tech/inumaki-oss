@@ -37,6 +37,12 @@ The local installer output is written to:
 apps/desktop/release/
 ```
 
+Building the NSIS installer from Linux requires `wine`. Without `wine`,
+electron-builder can create `apps/desktop/release/win-unpacked/`, but it cannot
+finish the installer. In that case, zip the full `win-unpacked` directory and
+run `Inumaki AI.exe` from inside the extracted folder on Windows. For the normal
+installer asset, use the GitHub Actions release workflow on `windows-latest`.
+
 ## API Endpoint
 
 The desktop app defaults to `http://127.0.0.1:4141`. For internal user downloads, make sure one of these is true:
