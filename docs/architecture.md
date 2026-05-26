@@ -14,7 +14,7 @@ The Electron app owns:
 - output mode, settings, and preview UI
 - clipboard writes and Windows auto-paste back into the foreground app captured at shortcut time
 
-The renderer records audio and posts a `multipart/form-data` payload to the API. The main process exposes a small IPC bridge for settings, app metadata, clipboard, paste, hotkey events, and the always-on-top capture overlay. The overlay is a separate frameless Electron window rendered from the same React bundle with `#/capture-overlay`; it receives live microphone level updates, sends Cancel/Mark actions back to the main renderer, and displays copyable output when paste delivery is unavailable.
+The renderer records audio and posts a `multipart/form-data` payload to the API. The main process exposes a small IPC bridge for settings, app metadata, clipboard, paste, hotkey events, and the always-on-top capture overlay. The overlay is a separate frameless Electron window rendered from the same React bundle with `#/capture-overlay`; it stays as a compact bottom pill during capture, receives live microphone level updates, sends Cancel/Mark actions back to the main renderer, and expands only to display copyable output when paste delivery is unavailable.
 
 ## API
 

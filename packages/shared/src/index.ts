@@ -35,6 +35,7 @@ export interface UserSettings {
   autoPaste: boolean;
   captureHotkeys: Record<OutputMode, string>;
   defaultMode: OutputMode;
+  groqApiKey: string;
   hotkey: string;
   launchAtLogin: boolean;
   microphoneId: string | null;
@@ -51,6 +52,7 @@ export const defaultSettings: UserSettings = {
     "coding-prompt": "CommandOrControl+Alt+4",
   },
   defaultMode: "clean-text",
+  groqApiKey: "",
   hotkey: "CommandOrControl+Shift+Space",
   launchAtLogin: true,
   microphoneId: null,

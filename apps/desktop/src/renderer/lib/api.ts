@@ -28,12 +28,16 @@ export async function createDictation(input: {
   audio: Blob;
   audioSeconds: number;
   clientAudioBlobMs?: number;
+  groqApiKey?: string;
   mode: OutputMode;
 }): Promise<DictationResponse> {
   const formData = new FormData();
   formData.append("audio", input.audio, "dictation.webm");
   formData.append("mode", input.mode);
   formData.append("audioSeconds", String(input.audioSeconds));
+  if (input.groqApiKey) {
+    formData.append("groqApiKey", input.groqApiKey);
+  }
 
   const startedAt = performance.now();
   const response = await fetch(`${input.apiBaseUrl}/dictations`, {
@@ -104,6 +108,33 @@ export async function disableUser(
 
   if (!response.ok) {
     throw new Error(await readError(response));
+  }
+}
+
+export async function checkApiHealth(
+  apiBaseUrl: string,
+  timeoutMs = 2000,
+): Promise<{ ok: boolean; error?: string }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`${apiBaseUrl}/health`, {
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      return { ok: false, error: `API responded with ${response.status}.` };
+    }
+    return { ok: true };
+  } catch (error) {
+    const message =
+      error instanceof Error && error.name === "AbortError"
+        ? `API did not respond within ${timeoutMs}ms.`
+        : error instanceof Error
+          ? error.message
+          : "Unknown error";
+    return { ok: false, error: message };
+  } finally {
+    clearTimeout(timer);
   }
 }
 

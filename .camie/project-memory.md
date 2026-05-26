@@ -16,7 +16,9 @@ It was auto-generated from a first-pass repository scan and should be refined as
 - Shared package exports output modes, labels, default settings, and API contract types.
 - SQLite is the MVP persistence layer via `better-sqlite3` and Drizzle schema definitions. API creates tables on startup.
 - Transcription uses local whisper.cpp. `pnpm setup:whisper` downloads the official Windows binary release by default on Windows, clones/builds whisper.cpp on Linux/macOS, and downloads the configured ggml model; `WHISPER_CPP_BINARY` and `WHISPER_MODEL_PATH` can override resolution.
-- Rewrite uses Groq when `GROQ_API_KEY` is configured; otherwise the API uses deterministic local cleanup fallback.
+- Rewrite uses Groq when a key is available; otherwise the API uses deterministic local cleanup fallback. The key can be set per-user via the desktop Settings panel (`UserSettings.groqApiKey`) and is sent as a form field on `/dictations`; the API falls back to the `GROQ_API_KEY` env when no per-request key is provided. Any Groq fetch failure (network, timeout, non-2xx) is caught in `apps/api/src/rewrite/rewriter.ts` and degrades to the local rewriter, returning `fallbackReason`.
+- Whisper assets ship with the packaged desktop app via `electron-builder` `extraResources` (`apps/desktop/package.json`): `.local/whisper.cpp/build/bin` → `resources/whisper/bin`, `.local/whisper.cpp/models` → `resources/whisper/models`. `apps/api/src/dictation/transcription.ts` resolves them by checking `process.resourcesPath/whisper/...` and `INUMAKI_WHISPER_DIR` first, then dev locations.
+- Renderer health-checks `GET /health` every 15s with a 2s timeout (`apps/desktop/src/renderer/lib/api.ts:checkApiHealth`) and renders `ApiOfflineBanner` in `App.tsx` when the API is unreachable.
 
 ## Commands
 

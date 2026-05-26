@@ -10,5 +10,13 @@ body,
 
 body {
   margin: 0;
-  background: #f8fafc;
+  background: #F8FAFC;
+  color: #0F172A;
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgba(139, 92, 246, 0.25);
+  color: #0F172A;
 }

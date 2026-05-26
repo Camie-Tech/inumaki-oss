@@ -3,16 +3,23 @@ import "dotenv/config";
 import os from "node:os";
 import path from "node:path";
 
-const databaseUrl = process.env.DATABASE_URL ?? "file:./data/inumaki.sqlite";
+const defaultDataDir = path.resolve(process.cwd(), "data");
+const dataDir = path.resolve(process.env.INUMAKI_DATA_DIR ?? defaultDataDir);
+const uploadsDir = path.resolve(
+  process.env.INUMAKI_UPLOADS_DIR ?? path.join(dataDir, "uploads"),
+);
+const databaseUrl =
+  process.env.DATABASE_URL ?? `file:${path.join(dataDir, "inumaki.sqlite")}`;
 const defaultWhisperThreads = Math.min(
   8,
   Math.max(1, os.availableParallelism() - 1),
 );
 
 export const config = {
+  dataDir,
   databasePath: databaseUrl.startsWith("file:")
-    ? path.resolve(process.cwd(), databaseUrl.slice("file:".length))
-    : path.resolve(process.cwd(), databaseUrl),
+    ? path.resolve(databaseUrl.slice("file:".length))
+    : path.resolve(databaseUrl),
   groqFastModel: process.env.GROQ_FAST_MODEL ?? "",
   groqApiKey: process.env.GROQ_API_KEY ?? "",
   groqModel: process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
@@ -23,6 +30,7 @@ export const config = {
     "SLOW_DICTATION_THRESHOLD_MS",
     5_000,
   ),
+  uploadsDir,
   whisperBinary: process.env.WHISPER_CPP_BINARY ?? "",
   whisperCppHome: process.env.WHISPER_CPP_HOME ?? "",
   whisperModelName: process.env.WHISPER_CPP_MODEL ?? "base.en",

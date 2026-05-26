@@ -1,8 +1,17 @@
 import { config } from "./config";
-import { createServer } from "./server";
+import { createServer, startApi } from "./server";
 
-const app = createServer();
+export { createServer, startApi };
+export type { StartedApi } from "./server";
 
-app.listen(config.port, config.host, () => {
-  console.log(`Inumaki API listening on http://${config.host}:${config.port}`);
-});
+const isDirectRun =
+  typeof require !== "undefined" && require.main === module;
+
+if (isDirectRun) {
+  const app = createServer();
+  app.listen(config.port, config.host, () => {
+    console.log(
+      `Inumaki API listening on http://${config.host}:${config.port}`,
+    );
+  });
+}

@@ -4,6 +4,7 @@ import { config } from "../config";
 import { systemPromptForMode } from "./prompts";
 
 interface RewriteInput {
+  apiKey?: string;
   mode: OutputMode;
   tonePreference: string;
   transcript: string;
@@ -12,6 +13,7 @@ interface RewriteInput {
 interface RewriteResult {
   didRewrite: boolean;
   engine: "groq" | "local" | "none";
+  fallbackReason?: string;
   skippedReason?: string;
   text: string;
 }
@@ -40,7 +42,9 @@ export async function rewriteTranscript(
     };
   }
 
-  if (!config.groqApiKey) {
+  const groqApiKey = (input.apiKey || config.groqApiKey || "").trim();
+
+  if (!groqApiKey) {
     return {
       didRewrite: true,
       engine: "local",
@@ -51,47 +55,61 @@ export async function rewriteTranscript(
     };
   }
 
-  const response = await fetchWithTimeout(
-    "https://api.groq.com/openai/v1/chat/completions",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.groqApiKey}`,
-        "Content-Type": "application/json",
+  try {
+    const response = await fetchWithTimeout(
+      "https://api.groq.com/openai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${groqApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: config.groqFastModel || config.groqModel,
+          temperature: 0.2,
+          messages: [
+            {
+              role: "system",
+              content: systemPromptForMode(input.mode, input.tonePreference),
+            },
+            { role: "user", content: normalizedTranscript },
+          ],
+        }),
       },
-      body: JSON.stringify({
-        model: config.groqFastModel || config.groqModel,
-        temperature: 0.2,
-        messages: [
-          {
-            role: "system",
-            content: systemPromptForMode(input.mode, input.tonePreference),
-          },
-          { role: "user", content: normalizedTranscript },
-        ],
+    );
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Groq ${response.status}: ${body.slice(0, 200)}`);
+    }
+
+    const payload = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const content = payload.choices?.[0]?.message?.content?.trim();
+
+    if (!content) {
+      throw new Error("Groq response did not include content.");
+    }
+
+    return {
+      didRewrite: true,
+      engine: "groq",
+      text: content,
+    };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.warn(`Groq rewrite failed; using local fallback: ${reason}`);
+    return {
+      didRewrite: true,
+      engine: "local",
+      fallbackReason: reason,
+      text: localRewriteFallback({
+        ...input,
+        transcript: normalizedTranscript,
       }),
-    },
-  );
-
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Groq rewrite failed (${response.status}): ${body}`);
+    };
   }
-
-  const payload = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-  const content = payload.choices?.[0]?.message?.content?.trim();
-
-  if (!content) {
-    throw new Error("Groq rewrite response did not include content.");
-  }
-
-  return {
-    didRewrite: true,
-    engine: "groq",
-    text: content,
-  };
 }
 
 function localRewriteFallback(input: RewriteInput): string {

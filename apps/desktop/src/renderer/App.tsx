@@ -32,6 +32,7 @@ import {
 } from "@inumaki/shared";
 
 import {
+  checkApiHealth,
   createDictation,
   disableUser,
   getUsage,
@@ -99,6 +100,11 @@ function MainApp() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [pendingDisableUser, setPendingDisableUser] =
     useState<AdminUser | null>(null);
+  const [apiHealth, setApiHealth] = useState<{
+    ok: boolean;
+    error?: string;
+    checked: boolean;
+  }>({ ok: true, checked: false });
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -124,6 +130,22 @@ function MainApp() {
   useEffect(() => {
     captureModeRef.current = activeMode;
   }, [activeMode]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function probe() {
+      const result = await checkApiHealth(apiBaseUrl);
+      if (!cancelled) {
+        setApiHealth({ ...result, checked: true });
+      }
+    }
+    void probe();
+    const interval = window.setInterval(probe, 15_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [apiBaseUrl]);
 
   useEffect(() => {
     void navigator.mediaDevices?.enumerateDevices?.().then((items) => {
@@ -280,6 +302,7 @@ function MainApp() {
         audio,
         audioSeconds,
         clientAudioBlobMs,
+        groqApiKey: settings.groqApiKey,
         mode: captureModeRef.current,
       });
       if (result.timings) {
@@ -485,17 +508,17 @@ function MainApp() {
   }
 
   return (
-    <div className="min-h-dvh bg-zinc-100 text-zinc-950">
+    <div className="min-h-dvh bg-platinum text-navy">
       <div className="grid min-h-dvh grid-cols-[260px_minmax(0,1fr)]">
-        <aside className="border-b border-zinc-200 bg-zinc-950 text-white lg:border-b-0 lg:border-r lg:border-zinc-800">
+        <aside className="border-b border-mist bg-navy text-white lg:border-b-0 lg:border-r lg:border-slate-800">
           <div className="flex h-full flex-col p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
             <div className="flex items-center gap-3 px-2 py-2">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-white text-zinc-950">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-violet text-white shadow-violet">
                 <Mic className="size-5" />
               </div>
               <div className="min-w-0">
                 <h1 className="truncate text-base font-semibold">Inumaki AI</h1>
-                <p className="truncate text-sm text-zinc-400">Internal build</p>
+                <p className="truncate text-sm text-slate-400">Internal build</p>
               </div>
             </div>
 
@@ -541,9 +564,16 @@ function MainApp() {
         </aside>
 
         <main className="min-w-0 px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:px-6">
-          <header className="flex flex-wrap items-start justify-between gap-4 border-b border-zinc-200 pb-4">
+          {apiHealth.checked && !apiHealth.ok && (
+            <ApiOfflineBanner
+              apiBaseUrl={apiBaseUrl}
+              error={apiHealth.error}
+            />
+          )}
+
+          <header className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-4">
             <div>
-              <p className="text-sm font-medium text-zinc-500">
+              <p className="text-sm font-medium text-slate-500">
                 {activeView.eyebrow}
               </p>
               <h2 className="text-balance text-2xl font-semibold">
@@ -564,12 +594,12 @@ function MainApp() {
                   />
                   <button
                     className={cn(
-                      "mt-5 flex h-40 w-full flex-col items-center justify-center gap-3 rounded-lg border text-base font-semibold outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed",
+                      "mt-5 flex h-40 w-full flex-col items-center justify-center gap-3 rounded-lg border text-base font-semibold outline-none focus:ring-2 focus:ring-violet/20 disabled:cursor-not-allowed",
                       status === "recording"
                         ? "border-red-300 bg-red-50 text-red-700"
-                        : "border-blue-700 bg-blue-700 text-white hover:bg-blue-800",
+                        : "border-violet bg-violet text-white hover:bg-violet-hover",
                       status === "processing" &&
-                        "border-zinc-300 bg-zinc-200 text-zinc-500",
+                        "border-slate-300 bg-slate-200 text-slate-500",
                     )}
                     disabled={status === "processing"}
                     onClick={() =>
@@ -610,21 +640,21 @@ function MainApp() {
                       lastResult ? outputModeLabels[lastResult.mode] : "Pending"
                     }
                   />
-                  <div className="mt-4 min-h-72 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+                  <div className="mt-4 min-h-72 rounded-lg border border-slate-200 bg-slate-50 p-4">
                     {lastResult ? (
-                      <p className="whitespace-pre-wrap text-pretty text-sm leading-6 text-zinc-800">
+                      <p className="whitespace-pre-wrap text-pretty text-sm leading-6 text-slate-700">
                         {lastResult.finalText}
                       </p>
                     ) : (
                       <div className="flex min-h-60 flex-col items-center justify-center gap-3 text-center">
-                        <div className="flex size-12 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500">
+                        <div className="flex size-12 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500">
                           <Clipboard className="size-5" />
                         </div>
-                        <p className="text-sm font-medium text-zinc-600">
+                        <p className="text-sm font-medium text-slate-600">
                           No output yet.
                         </p>
                         <button
-                          className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-blue-700 px-4 text-sm font-medium text-white hover:bg-blue-800"
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-violet px-4 text-sm font-medium text-white hover:bg-violet-hover"
                           onClick={() => void startRecording()}
                         >
                           <Mic className="size-4" />
@@ -667,9 +697,9 @@ function MainApp() {
 
                 <Panel>
                   <PanelHeader title="Transcript" meta="Source" />
-                  <div className="mt-4 max-h-44 overflow-auto rounded-lg border border-zinc-200 bg-white p-4 text-sm leading-6 text-zinc-700">
+                  <div className="mt-4 max-h-44 overflow-auto rounded-lg border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-700">
                     {lastResult?.transcript ?? (
-                      <span className="text-zinc-500">
+                      <span className="text-slate-500">
                         Transcript will appear after processing.
                       </span>
                     )}
@@ -744,12 +774,12 @@ function MainApp() {
                     }
                   />
 
-                  <div className="border-t border-zinc-200 pt-4">
+                  <div className="border-t border-slate-200 pt-4">
                     <div className="mb-3 flex items-center justify-between gap-3">
-                      <p className="text-sm font-semibold text-zinc-950">
+                      <p className="text-sm font-semibold text-slate-900">
                         Mode commands
                       </p>
-                      <span className="text-xs text-zinc-500">
+                      <span className="text-xs text-slate-500">
                         Start directly
                       </span>
                     </div>
@@ -811,6 +841,27 @@ function MainApp() {
                     />
                   </Field>
 
+                  <Field label="Groq API key (optional)">
+                    <input
+                      className={fieldClassName}
+                      type="password"
+                      autoComplete="off"
+                      spellCheck={false}
+                      placeholder="gsk_..."
+                      value={draftSettings.groqApiKey}
+                      onChange={(event) =>
+                        setDraftSettings({
+                          ...draftSettings,
+                          groqApiKey: event.target.value,
+                        })
+                      }
+                    />
+                    <p className="text-xs font-normal text-slate-500">
+                      Stored locally. Without a key, dictations use the built-in
+                      local cleanup instead of Groq.
+                    </p>
+                  </Field>
+
                   <Toggle
                     checked={draftSettings.autoPaste}
                     label="Auto-paste"
@@ -840,13 +891,13 @@ function MainApp() {
                 )}
                 <div className="mt-4 flex justify-end gap-2">
                   <button
-                    className="h-10 rounded-md border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                    className="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
                     onClick={() => setDraftSettings(settings)}
                   >
                     Reset
                   </button>
                   <button
-                    className="h-10 rounded-md bg-blue-700 px-4 text-sm font-medium text-white hover:bg-blue-800"
+                    className="h-10 rounded-md bg-violet px-4 text-sm font-medium text-white hover:bg-violet-hover"
                     onClick={() => void saveSettings()}
                   >
                     Save settings
@@ -871,13 +922,13 @@ function MainApp() {
                 <PanelHeader title="Users" meta={`${users.length} total`} />
                 <div className="mt-5 flex flex-wrap gap-2">
                   <input
-                    className="h-10 min-w-72 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                    className="h-10 min-w-72 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-violet focus:ring-2 focus:ring-violet/20"
                     placeholder="developer@company.test"
                     value={inviteEmail}
                     onChange={(event) => setInviteEmail(event.target.value)}
                   />
                   <button
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-blue-700 px-4 text-sm font-medium text-white hover:bg-blue-800"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-violet px-4 text-sm font-medium text-white hover:bg-violet-hover"
                     onClick={() => void submitInvite()}
                   >
                     <UserPlus className="size-4" />
@@ -887,9 +938,9 @@ function MainApp() {
 
                 {error && view === "admin" && <InlineError message={error} />}
 
-                <div className="mt-5 overflow-hidden rounded-lg border border-zinc-200">
+                <div className="mt-5 overflow-hidden rounded-lg border border-slate-200">
                   <table className="w-full text-left text-sm">
-                    <thead className="bg-zinc-50 text-zinc-500">
+                    <thead className="bg-slate-50 text-slate-500">
                       <tr>
                         <th className="px-3 py-2 font-medium">Email</th>
                         <th className="px-3 py-2 font-medium">Status</th>
@@ -899,11 +950,11 @@ function MainApp() {
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-zinc-200">
+                    <tbody className="divide-y divide-slate-200">
                       {users.length === 0 ? (
                         <tr>
                           <td
-                            className="px-3 py-10 text-center text-zinc-500"
+                            className="px-3 py-10 text-center text-slate-500"
                             colSpan={4}
                           >
                             No users.
@@ -912,18 +963,18 @@ function MainApp() {
                       ) : (
                         users.map((user) => (
                           <tr key={user.id}>
-                            <td className="px-3 py-2 font-medium text-zinc-900">
+                            <td className="px-3 py-2 font-medium text-slate-800">
                               {user.email}
                             </td>
-                            <td className="px-3 py-2 text-zinc-600">
+                            <td className="px-3 py-2 text-slate-600">
                               {user.status}
                             </td>
-                            <td className="px-3 py-2 text-zinc-600">
+                            <td className="px-3 py-2 text-slate-600">
                               {new Date(user.createdAt).toLocaleDateString()}
                             </td>
                             <td className="px-3 py-2 text-right">
                               <button
-                                className="h-9 rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:text-zinc-400"
+                                className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
                                 disabled={user.status === "disabled"}
                                 onClick={() => setPendingDisableUser(user)}
                               >
@@ -944,19 +995,19 @@ function MainApp() {
 
       <Dialog.Root open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-40 bg-zinc-950/40" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[min(92vw,760px)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-zinc-200 bg-white p-5 shadow-lg">
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-slate-900/40" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[min(92vw,760px)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-slate-200 bg-white p-5 shadow-lg">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <Dialog.Title className="text-balance text-lg font-semibold">
                   Preview
                 </Dialog.Title>
-                <Dialog.Description className="mt-1 text-pretty text-sm text-zinc-600">
+                <Dialog.Description className="mt-1 text-pretty text-sm text-slate-600">
                   {outputModeLabels[activeMode]}
                 </Dialog.Description>
               </div>
               <Dialog.Close
-                className="rounded-md p-2 text-zinc-500 hover:bg-zinc-100"
+                className="rounded-md p-2 text-slate-500 hover:bg-slate-100"
                 aria-label="Close preview"
               >
                 <X className="size-4" />
@@ -965,13 +1016,13 @@ function MainApp() {
 
             <div className="mt-4 grid gap-3">
               <Field label="Transcript">
-                <div className="max-h-28 overflow-auto rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm font-normal text-zinc-600">
+                <div className="max-h-28 overflow-auto rounded-md border border-slate-200 bg-slate-50 p-3 text-sm font-normal text-slate-600">
                   {lastResult?.transcript ?? "No transcript available."}
                 </div>
               </Field>
               <Field label="Final output">
                 <textarea
-                  className="min-h-44 rounded-md border border-zinc-300 bg-white p-3 text-sm font-normal text-zinc-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                  className="min-h-44 rounded-md border border-slate-300 bg-white p-3 text-sm font-normal text-slate-900 outline-none focus:border-violet focus:ring-2 focus:ring-violet/20"
                   value={previewText}
                   onChange={(event) => setPreviewText(event.target.value)}
                 />
@@ -979,18 +1030,18 @@ function MainApp() {
             </div>
 
             <div className="mt-5 flex flex-wrap justify-end gap-2">
-              <Dialog.Close className="h-10 rounded-md border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 hover:bg-zinc-50">
+              <Dialog.Close className="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50">
                 Cancel
               </Dialog.Close>
               <button
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
                 onClick={() => void copyText(previewText)}
               >
                 <Copy className="size-4" />
                 Copy
               </button>
               <button
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-blue-700 px-4 text-sm font-medium text-white hover:bg-blue-800"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-violet px-4 text-sm font-medium text-white hover:bg-violet-hover"
                 onClick={() => {
                   void pasteText(previewText);
                   setIsPreviewOpen(false);
@@ -1009,16 +1060,16 @@ function MainApp() {
         onOpenChange={(open) => !open && setPendingDisableUser(null)}
       >
         <AlertDialog.Portal>
-          <AlertDialog.Overlay className="fixed inset-0 z-40 bg-zinc-950/40" />
-          <AlertDialog.Content className="fixed left-1/2 top-1/2 z-50 w-[min(92vw,420px)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-zinc-200 bg-white p-5 shadow-lg">
+          <AlertDialog.Overlay className="fixed inset-0 z-40 bg-slate-900/40" />
+          <AlertDialog.Content className="fixed left-1/2 top-1/2 z-50 w-[min(92vw,420px)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-slate-200 bg-white p-5 shadow-lg">
             <AlertDialog.Title className="text-balance text-lg font-semibold">
               Disable user
             </AlertDialog.Title>
-            <AlertDialog.Description className="mt-2 text-pretty text-sm text-zinc-600">
+            <AlertDialog.Description className="mt-2 text-pretty text-sm text-slate-600">
               {pendingDisableUser?.email}
             </AlertDialog.Description>
             <div className="mt-5 flex justify-end gap-2">
-              <AlertDialog.Cancel className="h-10 rounded-md border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 hover:bg-zinc-50">
+              <AlertDialog.Cancel className="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50">
                 Cancel
               </AlertDialog.Cancel>
               <AlertDialog.Action
@@ -1068,20 +1119,20 @@ function CaptureOverlayApp() {
   if (isResult || isError) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-transparent p-2 text-white">
-        <section className="w-full overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl shadow-zinc-950/40">
-          <div className="flex h-12 items-center justify-between gap-3 border-b border-zinc-800 px-3">
+        <section className="w-full overflow-hidden rounded-xl border border-slate-700 bg-slate-900 shadow-2xl shadow-slate-900/40">
+          <div className="flex h-12 items-center justify-between gap-3 border-b border-slate-700 px-3">
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">
                 {isError ? "Needs attention" : "Output ready"}
               </p>
-              <p className="truncate text-xs text-zinc-400">
+              <p className="truncate text-xs text-slate-400">
                 {state.modeLabel}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               {isResult && (
                 <button
-                  className="inline-flex h-8 items-center justify-center gap-2 rounded-full bg-white px-3 text-xs font-semibold text-zinc-950 hover:bg-zinc-200"
+                  className="inline-flex h-8 items-center justify-center gap-2 rounded-full bg-white px-3 text-xs font-semibold text-slate-900 hover:bg-slate-200"
                   aria-label="Copy transcribed text"
                   onClick={() =>
                     state.text && void window.inumaki.writeClipboard(state.text)
@@ -1092,7 +1143,7 @@ function CaptureOverlayApp() {
                 </button>
               )}
               <button
-                className="flex size-8 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
+                className="flex size-8 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-slate-100 hover:bg-slate-700"
                 aria-label="Close dictation overlay"
                 title="Close"
                 onClick={() => void window.inumaki.hideCaptureOverlay()}
@@ -1105,7 +1156,7 @@ function CaptureOverlayApp() {
           <div className="p-3">
             {isResult ? (
               <textarea
-                className="h-32 w-full resize-none rounded-lg border border-zinc-800 bg-zinc-900 p-3 text-sm leading-5 text-zinc-100 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-950"
+                className="h-32 w-full resize-none rounded-lg border border-slate-700 bg-slate-800 p-3 text-sm leading-5 text-slate-100 outline-none focus:border-violet focus:ring-2 focus:ring-violet/30"
                 readOnly
                 value={state.text ?? ""}
                 aria-label="Transcribed text"
@@ -1127,11 +1178,11 @@ function CaptureOverlayApp() {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-transparent text-white">
       <section
-        className="grid h-[76px] w-[304px] grid-cols-[36px_minmax(0,1fr)_36px] items-center gap-3 rounded-[26px] border border-zinc-700/90 bg-zinc-950/95 px-3 py-2 shadow-2xl shadow-zinc-950/50 ring-1 ring-white/10"
+        className="grid h-[76px] w-[304px] grid-cols-[36px_minmax(0,1fr)_36px] items-center gap-3 rounded-[26px] border border-slate-700/90 bg-slate-900/95 px-3 py-2 shadow-2xl shadow-slate-900/50 ring-1 ring-white/10"
         aria-label={isProcessing ? "Dictation processing" : "Dictation active"}
       >
         <button
-          className="flex size-9 shrink-0 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-45"
+          className="flex size-9 shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-slate-100 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-45"
           disabled={isProcessing}
           aria-label="Cancel dictation"
           title="Cancel dictation"
@@ -1142,10 +1193,10 @@ function CaptureOverlayApp() {
 
         <div className="min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400">
+            <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
               {state.detail ?? (isProcessing ? "Processing" : "Recording")}
             </p>
-            <p className="truncate text-xs font-medium text-zinc-200">
+            <p className="truncate text-xs font-medium text-slate-200">
               {state.modeLabel}
             </p>
           </div>
@@ -1157,7 +1208,7 @@ function CaptureOverlayApp() {
         </div>
 
         <button
-          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white text-zinc-950 hover:bg-zinc-200 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"
+          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white text-slate-900 hover:bg-slate-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
           disabled={!isRecording}
           aria-label="Mark end of dictation"
           title="Mark end of dictation"
@@ -1189,7 +1240,7 @@ function VoiceWave({
       className="relative mt-1 flex h-9 w-full items-center justify-center gap-1 overflow-hidden"
       aria-hidden="true"
     >
-      <span className="absolute inset-x-0 top-1/2 h-px bg-gradient-to-r from-transparent via-zinc-700 to-transparent" />
+      <span className="absolute inset-x-0 top-1/2 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
       {bars.map((weight, index) => {
         const movement = active ? Math.max(level, 0.08) : 0.05;
         const processingLift = processing ? 0.32 + (index % 5) * 0.08 : 0;
@@ -1204,7 +1255,7 @@ function VoiceWave({
           <span
             key={index}
             className={cn(
-              "relative block w-1 rounded-full bg-zinc-100 transition-[height,opacity] duration-75 motion-reduce:transition-none",
+              "relative block w-1 rounded-full bg-slate-100 transition-[height,opacity] duration-75 motion-reduce:transition-none",
               processing &&
                 "animate-pulse bg-sky-200 motion-reduce:animate-none",
               active && level > 0.28 && index % 4 === 0 && "bg-emerald-200",
@@ -1222,7 +1273,7 @@ function VoiceWave({
 }
 
 const fieldClassName =
-  "h-11 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100";
+  "h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-violet focus:ring-2 focus:ring-violet/20";
 
 function Panel({
   children,
@@ -1234,7 +1285,7 @@ function Panel({
   return (
     <section
       className={cn(
-        "rounded-lg border border-zinc-200 bg-white p-4 shadow-sm",
+        "rounded-lg border border-slate-200 bg-white p-4 shadow-sm",
         className,
       )}
     >
@@ -1247,7 +1298,7 @@ function PanelHeader({ title, meta }: { title: string; meta: string }) {
   return (
     <div className="flex items-start justify-between gap-3">
       <h3 className="text-balance text-base font-semibold">{title}</h3>
-      <span className="max-w-56 truncate rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600">
+      <span className="max-w-56 truncate rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
         {meta}
       </span>
     </div>
@@ -1271,10 +1322,10 @@ function ModePicker({
         <button
           key={mode}
           className={cn(
-            "h-10 rounded-md border px-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-100",
+            "h-10 rounded-md border px-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet/20",
             activeMode === mode
-              ? "border-blue-700 bg-blue-700 text-white"
-              : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50",
+              ? "border-violet bg-violet text-white"
+              : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
           )}
           aria-pressed={activeMode === mode}
           title={outputModeLabels[mode]}
@@ -1303,8 +1354,8 @@ function NavButton({
       className={cn(
         "inline-flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium outline-none focus:ring-2 focus:ring-white/30",
         active
-          ? "bg-white text-zinc-950"
-          : "text-zinc-300 hover:bg-zinc-900 hover:text-white",
+          ? "bg-white text-slate-900"
+          : "text-slate-300 hover:bg-slate-800 hover:text-white",
       )}
       onClick={onClick}
     >
@@ -1324,11 +1375,11 @@ function SidebarFact({
   value: string;
 }) {
   return (
-    <div className="grid grid-cols-[24px_minmax(0,1fr)] gap-3 rounded-lg border border-zinc-800 p-3">
-      <Icon className="mt-0.5 size-4 text-zinc-400" />
+    <div className="grid grid-cols-[24px_minmax(0,1fr)] gap-3 rounded-lg border border-slate-700 p-3">
+      <Icon className="mt-0.5 size-4 text-slate-400" />
       <div className="min-w-0">
-        <div className="text-xs font-medium text-zinc-500">{label}</div>
-        <div className="truncate text-sm text-zinc-100">{value}</div>
+        <div className="text-xs font-medium text-slate-500">{label}</div>
+        <div className="truncate text-sm text-slate-100">{value}</div>
       </div>
     </div>
   );
@@ -1351,10 +1402,40 @@ function StatusBadge({
         status === "success" &&
           "border-emerald-200 bg-emerald-50 text-emerald-700",
         status === "error" && "border-red-200 bg-red-50 text-red-700",
-        status === "idle" && "border-zinc-200 bg-white text-zinc-600",
+        status === "idle" && "border-slate-200 bg-white text-slate-600",
       )}
     >
       {label}
+    </div>
+  );
+}
+
+function ApiOfflineBanner({
+  apiBaseUrl,
+  error,
+}: {
+  apiBaseUrl: string;
+  error?: string;
+}) {
+  return (
+    <div
+      className="mb-4 mt-2 flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"
+      role="alert"
+    >
+      <AlertCircle className="mt-0.5 size-4 shrink-0" />
+      <div className="min-w-0">
+        <p className="font-semibold">Inumaki API is not reachable.</p>
+        <p className="mt-1 text-pretty text-amber-800">
+          Dictation, settings sync, and admin features require the local API at{" "}
+          <span className="font-mono">{formatApiHost(apiBaseUrl)}</span>. Start
+          it with <span className="font-mono">pnpm dev:api</span> in
+          development, or ensure the bundled API service is running for the
+          packaged build.
+        </p>
+        {error && (
+          <p className="mt-1 truncate text-xs text-amber-700">{error}</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -1370,9 +1451,9 @@ function InlineError({ message }: { message: string }) {
 
 function StateRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-t border-zinc-100 pt-2 text-sm">
-      <span className="text-zinc-500">{label}</span>
-      <span className="truncate font-medium text-zinc-800">{value}</span>
+    <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-2 text-sm">
+      <span className="text-slate-500">{label}</span>
+      <span className="truncate font-medium text-slate-700">{value}</span>
     </div>
   );
 }
@@ -1390,7 +1471,7 @@ function ActionButton({
 }) {
   return (
     <button
-      className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:text-zinc-400"
+      className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
       disabled={disabled}
       onClick={onClick}
     >
@@ -1402,9 +1483,9 @@ function ActionButton({
 
 function SessionMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
-      <div className="text-xs font-medium text-zinc-500">{label}</div>
-      <div className="mt-1 truncate text-sm font-medium text-zinc-900">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <div className="text-xs font-medium text-slate-500">{label}</div>
+      <div className="mt-1 truncate text-sm font-medium text-slate-800">
         {value}
       </div>
     </div>
@@ -1413,7 +1494,7 @@ function SessionMetric({ label, value }: { label: string; value: string }) {
 
 function Field({ children, label }: { children: ReactNode; label: string }) {
   return (
-    <label className="grid gap-2 text-sm font-medium text-zinc-700">
+    <label className="grid gap-2 text-sm font-medium text-slate-700">
       {label}
       {children}
     </label>
@@ -1430,10 +1511,10 @@ function Toggle({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex items-center justify-between gap-4 rounded-lg border border-zinc-200 p-3 text-sm font-medium text-zinc-700">
+    <label className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 p-3 text-sm font-medium text-slate-700">
       <span>{label}</span>
       <input
-        className="size-5 accent-blue-700"
+        className="size-5 accent-violet"
         type="checkbox"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
@@ -1444,9 +1525,9 @@ function Toggle({
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-      <div className="text-sm font-medium text-zinc-500">{label}</div>
-      <div className="mt-2 text-3xl font-semibold tabular-nums text-zinc-950">
+    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="text-sm font-medium text-slate-500">{label}</div>
+      <div className="mt-2 text-3xl font-semibold tabular-nums text-slate-900">
         {value}
       </div>
     </div>

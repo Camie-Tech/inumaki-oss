@@ -82,7 +82,7 @@ function resolveWhisperAssets(): WhisperAssets {
       .filter(Boolean)
       .join(" and ");
     throw new Error(
-      `${missing} not found. Run \`pnpm setup:whisper\`, or set WHISPER_CPP_BINARY and WHISPER_MODEL_PATH to existing local files.`,
+      `${missing} not found. In a packaged build the assets should ship under resources/whisper/. In development, run \`pnpm setup:whisper\`, or set WHISPER_CPP_BINARY and WHISPER_MODEL_PATH (or INUMAKI_WHISPER_DIR) to existing local files.`,
     );
   }
 
@@ -216,7 +216,11 @@ function whisperBinaryCandidates(): string[] {
       ? ["whisper-cli.exe", "main.exe"]
       : ["whisper-cli", "main"];
 
+  const packagedRoots = packagedResourceRoots();
+
   return names.flatMap((name) => [
+    ...packagedRoots.map((root) => path.join(root, "bin", name)),
+    ...packagedRoots.map((root) => path.join(root, name)),
     path.join(home, "build", "bin", name),
     path.join(home, "build", "bin", "Release", name),
     path.join(home, name),
@@ -226,12 +230,29 @@ function whisperBinaryCandidates(): string[] {
 
 function whisperModelCandidates(): string[] {
   const fileName = `ggml-${config.whisperModelName}.bin`;
+  const packagedRoots = packagedResourceRoots();
 
   return [
+    ...packagedRoots.map((root) => path.join(root, "models", fileName)),
     path.join(whisperCppHome(), "models", fileName),
     path.join(apiRoot(), "models", fileName),
     path.join(repoRoot(), "models", "whisper", fileName),
   ];
+}
+
+function packagedResourceRoots(): string[] {
+  const roots: string[] = [];
+  const electronResources =
+    typeof (process as { resourcesPath?: string }).resourcesPath === "string"
+      ? (process as { resourcesPath?: string }).resourcesPath ?? ""
+      : "";
+  if (electronResources) {
+    roots.push(path.join(electronResources, "whisper"));
+  }
+  if (process.env.INUMAKI_WHISPER_DIR) {
+    roots.push(process.env.INUMAKI_WHISPER_DIR);
+  }
+  return roots;
 }
 
 function whisperCppHome(): string {

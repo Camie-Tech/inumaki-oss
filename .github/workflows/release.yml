@@ -34,6 +34,10 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Set up whisper.cpp (binary + ggml model)
+        run: pnpm setup:whisper
+      - name: Rebuild native modules against Electron
+        run: pnpm --filter @inumaki/desktop exec electron-builder install-app-deps
       - run: pnpm --filter @inumaki/desktop dist:win
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4

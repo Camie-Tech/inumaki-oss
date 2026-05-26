@@ -27,6 +27,7 @@ const settingsSchema = z.object({
     "polished-message",
     "coding-prompt",
   ]),
+  groqApiKey: z.string().default(""),
   hotkey: z.string().min(1),
   launchAtLogin: z.boolean(),
   microphoneId: z.string().nullable(),
@@ -69,6 +70,7 @@ export function readSettings(): UserSettings {
       "defaultMode",
       defaultSettings.defaultMode,
     ) as UserSettings["defaultMode"],
+    groqApiKey: readString(values, "groqApiKey", defaultSettings.groqApiKey),
     hotkey: readString(values, "hotkey", defaultSettings.hotkey),
     launchAtLogin: readBoolean(
       values,

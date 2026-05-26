@@ -1,27 +1,37 @@
 {
   "name": "@inumaki/desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Inumaki AI Windows desktop client.",
   "main": "out/main/index.js",
   "scripts": {
-    "build": "pnpm --filter @inumaki/shared build && electron-vite build",
+    "build": "pnpm --filter @inumaki/shared build && pnpm --filter @inumaki/api build && electron-vite build",
     "build:renderer": "pnpm --filter @inumaki/shared build && electron-vite build --renderer-only",
-    "dev": "pnpm --filter @inumaki/shared build && electron-vite dev",
+    "dev": "pnpm --filter @inumaki/shared build && pnpm --filter @inumaki/api build && electron-vite dev",
     "dist:win": "pnpm build && electron-builder --win nsis --x64",
     "test": "node --test --experimental-strip-types src/**/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@inumaki/api": "workspace:*",
     "@inumaki/shared": "workspace:*",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-dialog": "^1.1.15",
+    "better-sqlite3": "^12.4.1",
     "clsx": "^2.1.1",
+    "cors": "^2.8.5",
     "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.44.7",
+    "express": "^5.1.0",
+    "ffmpeg-static": "^5.3.0",
     "lucide-react": "^0.552.0",
+    "multer": "^2.0.2",
+    "pino": "^10.1.0",
+    "pino-http": "^11.0.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "tailwind-merge": "^3.4.0"
+    "tailwind-merge": "^3.4.0",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@types/node": "^22.18.10",
@@ -46,7 +56,35 @@
     },
     "files": [
       "out/**",
-      "package.json"
+      "package.json",
+      "node_modules/**"
+    ],
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**",
+      "node_modules/bindings/**",
+      "node_modules/file-uri-to-path/**",
+      "node_modules/ffmpeg-static/**"
+    ],
+    "npmRebuild": true,
+    "extraResources": [
+      {
+        "from": "../../.local/whisper.cpp/build/bin",
+        "to": "whisper/bin",
+        "filter": [
+          "whisper-cli*",
+          "main*",
+          "*.dll",
+          "*.so",
+          "*.dylib"
+        ]
+      },
+      {
+        "from": "../../.local/whisper.cpp/models",
+        "to": "whisper/models",
+        "filter": [
+          "ggml-*.bin"
+        ]
+      }
     ],
     "win": {
       "target": "nsis"

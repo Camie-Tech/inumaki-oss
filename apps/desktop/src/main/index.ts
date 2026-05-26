@@ -43,9 +43,10 @@ let currentSettings = readSettings();
 let isQuitting = false;
 let pasteTargetWindowHandle: string | null = null;
 let captureOverlayState: CaptureOverlayState | null = null;
+let apiHandle: { close: () => Promise<void> } | null = null;
 
-const apiPort = process.env.INUMAKI_API_PORT ?? "4141";
-const apiBaseUrl =
+const apiPort = Number(process.env.INUMAKI_API_PORT ?? 4141);
+let apiBaseUrl =
   process.env.INUMAKI_API_BASE_URL ?? `http://127.0.0.1:${apiPort}`;
 const isBackgroundLaunch =
   process.argv.includes("--background") || process.argv.includes("--hidden");
@@ -390,9 +391,47 @@ ipcMain.handle("capture-overlay:mark", () => {
   mainWindow?.webContents.send("capture-overlay:mark");
 });
 
-app.whenReady().then(() => {
+async function bootstrapApi(): Promise<void> {
+  if (process.env.INUMAKI_API_BASE_URL) {
+    return;
+  }
+
+  const userData = app.getPath("userData");
+  const dataDir = path.join(userData, "api-data");
+  const uploadsDir = path.join(dataDir, "uploads");
+  fs.mkdirSync(uploadsDir, { recursive: true });
+
+  const resourcesRoot = app.isPackaged
+    ? process.resourcesPath
+    : path.resolve(__dirname, "..", "..", "..", "..");
+  const whisperDir = app.isPackaged
+    ? path.join(resourcesRoot, "whisper")
+    : path.join(resourcesRoot, ".local", "whisper.cpp");
+
+  process.env.INUMAKI_DATA_DIR = dataDir;
+  process.env.INUMAKI_UPLOADS_DIR = uploadsDir;
+  process.env.INUMAKI_WHISPER_DIR = whisperDir;
+  process.env.INUMAKI_API_PORT = String(apiPort);
+  process.env.HOST = "127.0.0.1";
+
+  try {
+    const { startApi } = await import("@inumaki/api");
+    const started = await startApi({
+      host: "127.0.0.1",
+      port: apiPort,
+    });
+    apiBaseUrl = started.baseUrl;
+    apiHandle = { close: started.close };
+    console.log(`Inumaki API started at ${apiBaseUrl}`);
+  } catch (error) {
+    console.error("Failed to start in-process API:", error);
+  }
+}
+
+app.whenReady().then(async () => {
   currentSettings = readSettings();
   Menu.setApplicationMenu(null);
+  await bootstrapApi();
   createWindow();
   createTray();
   registerHotkey(currentSettings);
@@ -410,4 +449,19 @@ app.whenReady().then(() => {
 app.on("will-quit", () => {
   isQuitting = true;
   globalShortcut.unregisterAll();
+});
+
+app.on("before-quit", async (event) => {
+  if (!apiHandle) {
+    return;
+  }
+  event.preventDefault();
+  const handle = apiHandle;
+  apiHandle = null;
+  try {
+    await handle.close();
+  } catch (error) {
+    console.warn("API shutdown error:", error);
+  }
+  app.quit();
 });

@@ -18,9 +18,9 @@ import { preferences, usageEvents } from "../db/schema";
 import { rewriteTranscript } from "../rewrite/rewriter";
 import { transcribeAudio } from "./transcription";
 
-fs.mkdirSync("data/uploads", { recursive: true });
+fs.mkdirSync(config.uploadsDir, { recursive: true });
 
-const upload = multer({ dest: "data/uploads" });
+const upload = multer({ dest: config.uploadsDir });
 
 export const dictationRouter = Router();
 
@@ -46,8 +46,12 @@ dictationRouter.post("/", upload.single("audio"), async (req, res, next) => {
     const transcription = await transcribeAudio(req.file.path);
     Object.assign(timings, transcription.timings);
 
+    const groqApiKey =
+      typeof req.body.groqApiKey === "string" ? req.body.groqApiKey : "";
+
     const [rewrite, serverRewriteMs] = await measureMs(() =>
       rewriteTranscript({
+        apiKey: groqApiKey,
         mode,
         tonePreference,
         transcript: transcription.text,
