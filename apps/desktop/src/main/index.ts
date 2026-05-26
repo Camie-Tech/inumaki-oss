@@ -14,6 +14,7 @@ import {
 import path from "node:path";
 import { execFile, execFileSync } from "node:child_process";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 
 import {
   defaultSettings,
@@ -44,6 +45,7 @@ let isQuitting = false;
 let pasteTargetWindowHandle: string | null = null;
 let captureOverlayState: CaptureOverlayState | null = null;
 let apiHandle: { close: () => Promise<void> } | null = null;
+let apiBootstrapError: string | null = null;
 
 const apiPort = Number(process.env.INUMAKI_API_PORT ?? 4141);
 let apiBaseUrl =
@@ -349,6 +351,10 @@ function restorePasteTargetScript(): string {
 }
 
 ipcMain.handle("app:get-api-base-url", () => apiBaseUrl);
+ipcMain.handle("app:get-api-status", () => ({
+  baseUrl: apiBaseUrl,
+  bootstrapError: apiBootstrapError,
+}));
 ipcMain.handle("settings:get", () => currentSettings);
 ipcMain.handle("settings:set", (_event, settings: UserSettings) =>
   writeSettings(settings),
@@ -399,6 +405,7 @@ async function bootstrapApi(): Promise<void> {
   const userData = app.getPath("userData");
   const dataDir = path.join(userData, "api-data");
   const uploadsDir = path.join(dataDir, "uploads");
+  const logPath = path.join(userData, "api-bootstrap.log");
   fs.mkdirSync(uploadsDir, { recursive: true });
 
   const resourcesRoot = app.isPackaged
@@ -414,17 +421,56 @@ async function bootstrapApi(): Promise<void> {
   process.env.INUMAKI_API_PORT = String(apiPort);
   process.env.HOST = "127.0.0.1";
 
-  try {
-    const { startApi } = await import("@inumaki/api");
-    const started = await startApi({
-      host: "127.0.0.1",
-      port: apiPort,
-    });
-    apiBaseUrl = started.baseUrl;
-    apiHandle = { close: started.close };
-    console.log(`Inumaki API started at ${apiBaseUrl}`);
-  } catch (error) {
-    console.error("Failed to start in-process API:", error);
+  const log = (message: string) => {
+    const line = `[${new Date().toISOString()}] ${message}\n`;
+    try {
+      fs.appendFileSync(logPath, line);
+    } catch {
+      /* swallow */
+    }
+    console.log(line.trim());
+  };
+
+  log(`bootstrapApi start. userData=${userData} resourcesRoot=${resourcesRoot} whisperDir=${whisperDir} port=${apiPort}`);
+
+  const cjsRequire = createRequire(__filename);
+  const ports = [apiPort, 0];
+
+  for (const port of ports) {
+    try {
+      const apiModule = cjsRequire("@inumaki/api") as {
+        startApi?: (opts: {
+          host: string;
+          port: number;
+        }) => Promise<{ baseUrl: string; close: () => Promise<void> }>;
+        default?: {
+          startApi: (opts: {
+            host: string;
+            port: number;
+          }) => Promise<{ baseUrl: string; close: () => Promise<void> }>;
+        };
+      };
+      const startApi = apiModule.startApi ?? apiModule.default?.startApi;
+      if (typeof startApi !== "function") {
+        throw new Error(
+          `@inumaki/api did not expose startApi. keys=${Object.keys(apiModule).join(",")}`,
+        );
+      }
+
+      const started = await startApi({ host: "127.0.0.1", port });
+      apiBaseUrl = started.baseUrl;
+      apiHandle = { close: started.close };
+      apiBootstrapError = null;
+      log(`API started at ${apiBaseUrl}`);
+      return;
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? `${error.name}: ${error.message}\n${error.stack ?? ""}`
+          : String(error);
+      log(`API start failed on port ${port}: ${message}`);
+      apiBootstrapError = message.split("\n")[0] ?? message;
+    }
   }
 }
 

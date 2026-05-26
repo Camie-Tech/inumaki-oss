@@ -135,8 +135,23 @@ function MainApp() {
     let cancelled = false;
     async function probe() {
       const result = await checkApiHealth(apiBaseUrl);
+      let combinedError = result.error;
+      if (!result.ok) {
+        try {
+          const status = await window.inumaki.getApiStatus?.();
+          if (status?.bootstrapError) {
+            combinedError = status.bootstrapError;
+          }
+        } catch {
+          /* preload may be older; ignore */
+        }
+      }
       if (!cancelled) {
-        setApiHealth({ ...result, checked: true });
+        setApiHealth({
+          ok: result.ok,
+          error: combinedError,
+          checked: true,
+        });
       }
     }
     void probe();

@@ -13,6 +13,10 @@ declare global {
   interface Window {
     inumaki: {
       getApiBaseUrl: () => Promise<string>;
+      getApiStatus: () => Promise<{
+        baseUrl: string;
+        bootstrapError: string | null;
+      }>;
       getSettings: () => Promise<UserSettings>;
       setSettings: (settings: UserSettings) => Promise<UserSettings>;
       writeClipboard: (text: string) => Promise<void>;

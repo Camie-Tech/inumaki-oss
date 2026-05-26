@@ -14,6 +14,11 @@ export interface CaptureOverlayState {
 contextBridge.exposeInMainWorld("inumaki", {
   getApiBaseUrl: () =>
     ipcRenderer.invoke("app:get-api-base-url") as Promise<string>,
+  getApiStatus: () =>
+    ipcRenderer.invoke("app:get-api-status") as Promise<{
+      baseUrl: string;
+      bootstrapError: string | null;
+    }>,
   getSettings: () =>
     ipcRenderer.invoke("settings:get") as Promise<UserSettings>,
   setSettings: (settings: UserSettings) =>
