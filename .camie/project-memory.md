@@ -78,7 +78,7 @@ It was auto-generated from a first-pass repository scan and should be refined as
 - Repository was initialized with Git on branch `main`.
 - Branch workflow is documented as `main` for releases and `dev` for integration; CI triggers on both.
 - Internal users download the desktop installer from GitHub Releases; `.github/workflows/release.yml` builds and uploads Windows release assets.
-- Local Linux builds need `wine` to finish the Windows NSIS installer; without it, electron-builder may still produce `apps/desktop/release/win-unpacked/`, which can be zipped and run on Windows by launching `Inumaki AI.exe` from the extracted folder.
+- Local Linux builds need `wine` to finish the Windows NSIS installer; without it, electron-builder may still produce `apps/desktop/release/win-unpacked/`, which can be zipped and run on Windows by launching `Inumaki AI.exe` from the extracted folder. If wine throws `could not load kernel32.dll, status c0000135`, wipe `~/.wine` and re-run `wine wineboot --init` — the prefix is corrupt and `dist:win` cannot run rcedit / makensis until it is rebuilt. After that, `pnpm --filter @inumaki/desktop dist:win` produces `Inumaki-AI-${version}-x64.exe` (NSIS installer) directly.
 - SQLite was chosen for the MVP despite the initial task mentioning Postgres in setup tasks, because the product spec recommends SQLite for the first internal version.
 - Project memory is stored in `.camie/project-memory.md` and is injected into every Camie session start.
 - Update this file whenever you learn durable facts that should reduce future re-discovery cost.
