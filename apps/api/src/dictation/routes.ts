@@ -48,11 +48,13 @@ dictationRouter.post("/", upload.single("audio"), async (req, res, next) => {
 
     const groqApiKey =
       typeof req.body.groqApiKey === "string" ? req.body.groqApiKey : "";
+    const offlineMode = req.body.offlineMode === "true";
 
     const [rewrite, serverRewriteMs] = await measureMs(() =>
       rewriteTranscript({
         apiKey: groqApiKey,
         mode,
+        offlineMode,
         tonePreference,
         transcript: transcription.text,
       }),

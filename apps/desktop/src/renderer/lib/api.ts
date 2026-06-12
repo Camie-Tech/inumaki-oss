@@ -30,6 +30,7 @@ export async function createDictation(input: {
   clientAudioBlobMs?: number;
   groqApiKey?: string;
   mode: OutputMode;
+  offlineMode?: boolean;
 }): Promise<DictationResponse> {
   const formData = new FormData();
   formData.append("audio", input.audio, "dictation.webm");
@@ -37,6 +38,9 @@ export async function createDictation(input: {
   formData.append("audioSeconds", String(input.audioSeconds));
   if (input.groqApiKey) {
     formData.append("groqApiKey", input.groqApiKey);
+  }
+  if (input.offlineMode) {
+    formData.append("offlineMode", "true");
   }
 
   const startedAt = performance.now();

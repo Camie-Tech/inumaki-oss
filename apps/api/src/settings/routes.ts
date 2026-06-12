@@ -31,6 +31,7 @@ const settingsSchema = z.object({
   hotkey: z.string().min(1),
   launchAtLogin: z.boolean(),
   microphoneId: z.string().nullable(),
+  offlineMode: z.boolean().default(false),
   previewBeforePaste: z.boolean(),
   tonePreference: z.string().min(1),
 });
@@ -81,6 +82,11 @@ export function readSettings(): UserSettings {
       values,
       "microphoneId",
       defaultSettings.microphoneId,
+    ),
+    offlineMode: readBoolean(
+      values,
+      "offlineMode",
+      defaultSettings.offlineMode,
     ),
     previewBeforePaste: readBoolean(
       values,

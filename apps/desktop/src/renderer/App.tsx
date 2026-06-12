@@ -319,6 +319,7 @@ function MainApp() {
         clientAudioBlobMs,
         groqApiKey: settings.groqApiKey,
         mode: captureModeRef.current,
+        offlineMode: settings.offlineMode,
       });
       if (result.timings) {
         console.info("Dictation timings", result.timings);
@@ -894,6 +895,16 @@ function MainApp() {
                       setDraftSettings({
                         ...draftSettings,
                         previewBeforePaste: checked,
+                      })
+                    }
+                  />
+                  <Toggle
+                    checked={draftSettings.offlineMode}
+                    label="Offline mode"
+                    onChange={(checked) =>
+                      setDraftSettings({
+                        ...draftSettings,
+                        offlineMode: checked,
                       })
                     }
                   />

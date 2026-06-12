@@ -6,6 +6,7 @@ import { systemPromptForMode } from "./prompts";
 interface RewriteInput {
   apiKey?: string;
   mode: OutputMode;
+  offlineMode?: boolean;
   tonePreference: string;
   transcript: string;
 }
@@ -43,6 +44,18 @@ export async function rewriteTranscript(
   }
 
   const groqApiKey = (input.apiKey || config.groqApiKey || "").trim();
+
+  if (input.offlineMode) {
+    return {
+      didRewrite: true,
+      engine: "local",
+      skippedReason: "offline-mode",
+      text: localRewriteFallback({
+        ...input,
+        transcript: normalizedTranscript,
+      }),
+    };
+  }
 
   if (!groqApiKey) {
     return {

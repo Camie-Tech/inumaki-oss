@@ -39,6 +39,7 @@ export interface UserSettings {
   hotkey: string;
   launchAtLogin: boolean;
   microphoneId: string | null;
+  offlineMode: boolean;
   previewBeforePaste: boolean;
   tonePreference: string;
 }
@@ -56,6 +57,7 @@ export const defaultSettings: UserSettings = {
   hotkey: "CommandOrControl+Shift+Space",
   launchAtLogin: true,
   microphoneId: null,
+  offlineMode: false,
   previewBeforePaste: false,
   tonePreference: "clear and concise",
 };
